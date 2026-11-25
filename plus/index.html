@@ -41,6 +41,7 @@ body{overflow:auto}
 <script src="../lib/moa-common.js"></script>
 <script>
 Moa.applyTheme('home');
+Moa.icons.code = '<path d="M8 6l-6 6 6 6M16 6l6 6-6 6M14 4l-4 16"/>';
 const APPS = [
   {file:'song.html', name:'HANAI Song', color:'linear-gradient(135deg,#3fc1c9,#7c8cff)', icon:'music', desc:'음악 플레이어', feats:['싱크 가사·인터넷 가사 찾기·데스크톱 가사창','라이브러리·즐겨찾기·태그 일괄 편집','<b>음정(키) 조절</b>·<b>MP3 저장</b>·EQ·음장 효과·녹음']},
   {file:'zip.html', name:'HANAI Zip', color:'linear-gradient(135deg,#f2b134,#e0743a)', icon:'zip', desc:'압축 프로그램', feats:['ZIP·TAR·TGZ 압축/풀기, <b>7Z 풀기</b>, 한글 파일명','AES-256·ZipCrypto 암호','미리 보기·편집·형식 변환·압축 테스트']},
@@ -49,12 +50,13 @@ const APPS = [
   {file:'capture.html', name:'HANAI Capture', color:'linear-gradient(135deg,#34c759,#00a2c7)', icon:'camera', desc:'화면 캡처', feats:['영역·전체·창·지연 캡처, 돋보기, <b>글자 추출</b>','화살표·도형·번호·모자이크·강조','복사·저장(PNG/JPG/PDF)·캡처 기록']},
   {file:'player.html', name:'HANAI Player', color:'linear-gradient(135deg,#5b6cff,#c13fd1)', icon:'play', desc:'동영상 플레이어', feats:['MP4·WebM·MKV, SMI·SRT·ASS 자막·이중 자막','배속·프레임 이동·구간 반복·<b>음정(키) 조절</b>','캡처·연속 캡처·GIF·<b>MP3 추출</b>·<b>화면 글자 추출</b>']},
   {file:'photo.html', name:'HANAI Photo', color:'linear-gradient(135deg,#ff7a59,#ff3d77)', icon:'palette', desc:'사진 꾸미기·편집', feats:['액자·필터·글자·말풍선·스티커·<b>AI 배경 지우기</b>','페이지(콜라주)·이어 붙이기·GIF·<b>HEIC 열기</b>','일괄 편집·증명사진 인쇄·<b>글자 추출</b>']},
+  {file:'code.html', name:'HANAI Code', color:'linear-gradient(135deg,#2f74c0,#14b8a6)', icon:'code', desc:'코드·텍스트 편집기', feats:['문법 강조 36가지 언어·Markdown/HTML 미리 보기','여러 곳 동시 편집·열(블록) 편집·정규식 찾기/바꾸기','UTF-8·EUC-KR·CRLF/LF·두 파일 비교·JSON/CSV 도구']},
 ];
 const g = document.getElementById('grid');
 APPS.forEach(a => g.append(Moa.el('a',{class:'app', href:encodeURI(a.file)},
   Moa.el('div',{class:'ic', style:{background:a.color}, html:Moa.icon(a.icon)}),
   Moa.el('div',null, Moa.el('h2',null,a.name), Moa.el('p',null,a.desc), Moa.el('ul',null, ...a.feats.map(f => Moa.el('li',{html:f})))))));
-document.getElementById('skin').onclick = e => Moa.themeMenu('home', e.clientX - 120, e.clientY + 14, k => { ['song','zip','see','pdf','cap','player','photo'].forEach(x => Moa.store.set('moa.theme.' + x, k)); Moa.store.set('moa.theme', k); });
+document.getElementById('skin').onclick = e => Moa.themeMenu('home', e.clientX - 120, e.clientY + 14, k => { ['song','zip','see','pdf','cap','player','photo','code'].forEach(x => Moa.store.set('moa.theme.' + x, k)); Moa.store.set('moa.theme', k); });
 </script>
 </body>
 </html>
