@@ -1,0 +1,991 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 32 32%22%3E%3Crect width=%2232%22 height=%2232%22 rx=%228%22 fill=%22%237c8cff%22/%3E%3Ctext x=%2216%22 y=%2223%22 font-size=%2219%22 font-family=%22Arial%22 font-weight=%22700%22 text-anchor=%22middle%22 fill=%22white%22%3EH%3C/text%3E%3C/svg%3E">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>HANAI PDF - HANAI Tools PDF 프로그램</title>
+<link rel="stylesheet" href="lib/moa.css">
+<style>
+.subbar{display:flex;align-items:center;gap:6px;padding:5px 8px;background:var(--panel);border-bottom:1px solid var(--line);flex:none;flex-wrap:wrap}
+.subbar .pg{width:52px;text-align:center}
+.subbar select{padding:3px 6px}
+.subbar input[type=search]{width:200px}
+.annobar{display:flex;align-items:center;gap:4px;padding:5px 8px;background:color-mix(in srgb,var(--accent) 10%,var(--panel));border-bottom:1px solid var(--line);flex:none;flex-wrap:wrap}
+.annobar .ibtn.on{background:var(--accent);color:var(--accentText)}
+.annobar .sep{width:1px;height:22px;background:var(--line);margin:0 4px}
+.body{flex:1;display:grid;grid-template-columns:190px 1fr;min-height:0}
+.body.nosb{grid-template-columns:0 1fr}
+.side{border-right:1px solid var(--line);overflow:auto;background:var(--panel);padding:8px 6px}
+.tcard{margin:0 auto 10px;width:150px;cursor:pointer;text-align:center;font-size:11px;color:var(--dim);border-radius:8px;padding:5px;border:2px solid transparent}
+.tcard canvas{display:block;margin:0 auto 4px;box-shadow:0 1px 4px rgba(0,0,0,.3);background:#fff;max-width:136px}
+.tcard.sel{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 12%,transparent)}
+.tcard.cur{color:var(--accent);font-weight:700}
+.tcard.drop{border-top:3px solid var(--warn)}
+.view{overflow:auto;position:relative;background:var(--bg2)}
+.pages{display:flex;flex-direction:column;align-items:center;gap:14px;padding:16px 10px 60px}
+.page{position:relative;background:#fff;box-shadow:0 2px 12px rgba(0,0,0,.35);flex:none}
+.page canvas.bmp{position:absolute;inset:0;width:100%;height:100%}
+.page canvas.anno{position:absolute;inset:0;width:100%;height:100%;z-index:3}
+.page .pno{position:absolute;left:-2px;top:-20px;font-size:11px;color:var(--dim)}
+.page.cur{outline:2px solid var(--accent)}
+.view.tool .page canvas.anno{cursor:crosshair}
+.view.tool .textLayer{pointer-events:none}
+.view.tool-select .page canvas.anno{cursor:default}
+.textLayer{position:absolute;text-align:initial;inset:0;overflow:clip;opacity:1;line-height:1;transform-origin:0 0;z-index:2}
+.textLayer span,.textLayer br{color:transparent;position:absolute;white-space:pre;cursor:text;transform-origin:0% 0%}
+.textLayer{--min-font-size:1;--text-scale-factor:calc(var(--total-scale-factor) * var(--min-font-size));--min-font-size-inv:calc(1 / var(--min-font-size))}
+.textLayer > :not(.markedContent),.textLayer .markedContent span:not(.markedContent){z-index:1;--font-height:0;font-size:calc(var(--text-scale-factor) * var(--font-height));--scale-x:1;--rotate:0deg;transform:rotate(var(--rotate)) scaleX(var(--scale-x)) scale(var(--min-font-size-inv))}
+.textLayer .markedContent{display:contents}
+.textLayer ::selection{background:rgba(0,90,255,.3)}
+.textLayer span.hit{background:rgba(255,200,0,.45);border-radius:2px}
+.textLayer span.hit.now{background:rgba(255,100,0,.6)}
+.org{display:grid;grid-template-columns:repeat(auto-fill,minmax(var(--og,180px),1fr));gap:16px;padding:16px;align-content:start}
+.ocard{position:relative;text-align:center;font-size:12px;color:var(--dim);border:2px solid transparent;border-radius:10px;padding:8px;cursor:pointer;user-select:none}
+.ocard canvas{max-width:100%;box-shadow:0 2px 8px rgba(0,0,0,.35);background:#fff}
+.ocard.sel{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 12%,transparent)}
+.ocard .acts{position:absolute;top:6px;right:6px;display:none;gap:2px}
+.ocard:hover .acts{display:flex}
+.ocard .acts button{width:26px;height:26px;border-radius:6px;border:1px solid var(--line);background:var(--panel);color:var(--text);display:grid;place-items:center}
+.ocard .acts svg{width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:2}
+.ocard.drop{border-left:4px solid var(--warn)}
+.welcome{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;min-height:100%;color:var(--dim);text-align:center;padding:30px}
+.welcome .cards{display:grid;grid-template-columns:repeat(4,170px);gap:12px}
+@media (max-width:820px){.welcome .cards{grid-template-columns:repeat(2,170px)}}
+.welcome .card{padding:16px 10px;border:1px solid var(--line);border-radius:14px;background:var(--panel);cursor:pointer;color:var(--text)}
+.welcome .card:hover{border-color:var(--accent)}
+.welcome .card svg{width:36px;height:36px;fill:none;stroke:var(--accent);stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round}
+.welcome .card b{display:block;margin:6px 0 2px}
+.welcome .card span{font-size:11.5px;color:var(--dim)}
+.flist{border:1px solid var(--line);border-radius:8px;max-height:300px;overflow:auto}
+.flist div{display:flex;align-items:center;gap:8px;padding:6px 8px;border-bottom:1px solid var(--line)}
+.flist div span{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sigpad{background:#fff;border:1px solid var(--line);border-radius:8px;touch-action:none;cursor:crosshair}
+</style>
+</head>
+<body>
+<div class="moa-app">
+  <div class="moa-title"><div class="moa-logo">P</div><h1 id="docTitle">HANAI PDF</h1><span class="sub">HANAI Tools PDF 프로그램</span><span class="grow"></span><span class="sub" id="docBadge"></span></div>
+  <div class="moa-toolbar" id="toolbar"></div>
+  <div class="subbar" id="subbar">
+    <button class="ibtn" id="bSide" title="썸네일 창 보이기/숨기기"></button>
+    <button class="ibtn" id="bPrev" title="이전 쪽 (PageUp)"></button>
+    <input type="text" class="pg" id="pgNow" value="0"><span class="dim" id="pgTotal">/ 0</span>
+    <button class="ibtn" id="bNext" title="다음 쪽 (PageDown)"></button>
+    <span style="width:8px"></span>
+    <button class="ibtn" id="bZo" title="축소 (Ctrl+-)"></button>
+    <select id="zoomSel"><option value="width">너비 맞춤</option><option value="page">쪽 맞춤</option><option value="0.5">50%</option><option value="0.75">75%</option><option value="1">100%</option><option value="1.25">125%</option><option value="1.5">150%</option><option value="2">200%</option><option value="3">300%</option><option value="4">400%</option></select>
+    <button class="ibtn" id="bZi" title="확대 (Ctrl++)"></button>
+    <span style="width:8px"></span>
+    <button class="btn sm" id="bMode" title="보기 / 페이지 정리 전환">▦ 페이지 정리</button>
+    <button class="btn sm" id="bAnno" title="펜·형광펜·글상자·서명 등 (편집 모드)">✎ 주석·서명</button>
+    <span class="grow"></span>
+    <input type="search" id="find" placeholder="본문 찾기 (Ctrl+F)">
+    <span class="dim" id="findInfo"></span>
+  </div>
+  <div class="annobar hidden" id="annobar"></div>
+  <div class="body" id="body">
+    <div class="side" id="side"></div>
+    <div class="view" id="view"><div class="pages" id="pages"></div><div class="org hidden" id="org"></div>
+      <div class="welcome" id="welcome">
+        <div style="font-size:18px;color:var(--text);font-weight:700">무엇을 할까요?</div>
+        <div class="cards">
+          <div class="card" data-a="open"><svg viewBox="0 0 24 24"></svg><b>PDF 열기</b><span>보기 · 찾기 · 인쇄</span></div>
+          <div class="card" data-a="merge"><svg viewBox="0 0 24 24"></svg><b>PDF 합치기</b><span>여러 PDF를 하나로</span></div>
+          <div class="card" data-a="img2pdf"><svg viewBox="0 0 24 24"></svg><b>이미지 → PDF</b><span>사진·스캔을 PDF로</span></div>
+          <div class="card" data-a="split"><svg viewBox="0 0 24 24"></svg><b>PDF 나누기</b><span>쪽별·범위별 분할</span></div>
+          <div class="card" data-a="pdf2img"><svg viewBox="0 0 24 24"></svg><b>PDF → 이미지</b><span>JPG·PNG로 변환</span></div>
+          <div class="card" data-a="sign"><svg viewBox="0 0 24 24"></svg><b>서명 · 주석</b><span>서명·도장·메모 넣기</span></div>
+          <div class="card" data-a="watermark"><svg viewBox="0 0 24 24"></svg><b>워터마크 · 쪽 번호</b><span>모든 쪽에 넣기</span></div>
+          <div class="card" data-a="compress"><svg viewBox="0 0 24 24"></svg><b>PDF 압축</b><span>파일 크기 줄이기</span></div>
+        </div>
+        <div>PDF나 이미지 파일을 이 창에 끌어다 놓아도 됩니다.</div>
+      </div>
+    </div>
+  </div>
+  <div class="moa-status"><span class="grow" id="status">준비</span><span id="stSel"></span><span id="stInfo"></span></div>
+</div>
+<script src="lib/pdfjs.js"></script>
+<script src="lib/pdfjs-worker.js"></script>
+<script src="lib/pdfjs-data.js"></script>
+<script src="lib/pdf-lib.min.js"></script>
+<script src="lib/pako.min.js"></script>
+<script src="lib/moa-common.js"></script>
+<script src="lib/moa-zip.js"></script>
+<script src="lib/moa-pdf.js"></script>
+<script>
+(() => {
+'use strict';
+const {$, el, esc, toast, icon} = Moa;
+Moa.applyTheme('pdf');
+const {PDFDocument, degrees, StandardFonts} = PDFLib;
+const S = Object.assign({zoom:'width', side:true, dpi:150, imgFmt:'image/jpeg', annoColor:'#e53935', annoWidth:3, textSize:16}, Moa.store.get('moapdf.settings', {}));
+const saveS = () => Moa.store.set('moapdf.settings', S);
+const A4 = [595.28, 841.89];
+
+/* ================= 상태 ================= */
+let sources = new Map();  // id → {id, kind:'pdf'|'image'|'blank', name, bytes, pdf, encrypted, size:[w,h], img}
+let pages = [];           // {id, src, idx, rot, objs:[]}
+let fileName = '';
+let modified = false;
+let meta = {title:'', author:'', subject:'', keywords:''};
+let deco = {wm:null, pn:null}; // 워터마크, 쪽 번호 설정
+let selected = new Set(), lastSel = null, curPage = 0, mode = 'view', tool = null;
+let undoStack = [], redoStack = [];
+let uid = 1; const nid = () => uid++;
+const pageCache = new Map(); // `${srcId}:${idx}` → pdf.js page
+
+/* ================= 툴바 ================= */
+Moa.toolbar($('#toolbar'), [
+  {icon:'open', label:'열기', title:'PDF 열기 (Ctrl+O)', onClick:()=>openPdf()},
+  {icon:'save', label:'저장', title:'PDF로 저장 (Ctrl+S)', onClick:()=>saveDoc()},
+  {icon:'print', label:'인쇄', title:'인쇄 (Ctrl+P)', onClick:()=>printDoc()},
+  '|',
+  {icon:'merge', label:'합치기', title:'여러 PDF 합치기', onClick:()=>mergeDialog()},
+  {icon:'split', label:'나누기', title:'PDF 나누기', onClick:()=>splitDialog()},
+  {icon:'pages', label:'쪽 추출', title:'선택한 쪽만 새 PDF로', onClick:()=>extractPages()},
+  {icon:'plus', label:'쪽 삽입', title:'다른 PDF·이미지·빈 쪽 삽입', onClick:e=>insertMenu(e)},
+  {icon:'rotR', label:'회전', title:'선택한 쪽 오른쪽 90° 회전 (Ctrl+R)', onClick:()=>rotateSel(90)},
+  {icon:'trash', label:'쪽 삭제', title:'선택한 쪽 삭제 (Delete)', onClick:()=>deleteSel()},
+  '|',
+  {icon:'image', label:'이미지→PDF', onClick:()=>imagesToPdf()},
+  {icon:'convert', label:'PDF→이미지', onClick:()=>pdfToImages()},
+  {icon:'text', label:'텍스트 추출', onClick:()=>extractText()},
+  '|',
+  {icon:'watermark', label:'워터마크', onClick:()=>watermarkDialog()},
+  {icon:'hash', label:'쪽 번호', onClick:()=>pageNumDialog()},
+  {icon:'sign', label:'서명', title:'서명 만들어 넣기', onClick:()=>signatureDialog()},
+  {icon:'zip', label:'압축', title:'PDF 용량 줄이기', onClick:()=>compressDialog()},
+  {icon:'info', label:'문서 정보', onClick:()=>propsDialog()},
+  '|',
+  {icon:'undo', label:'실행 취소', title:'실행 취소 (Ctrl+Z)', onClick:()=>undo()},
+  {icon:'palette', label:'스킨', onClick:e=>Moa.themeMenu('pdf', e.clientX, e.clientY+10)},
+  {icon:'help', label:'도움말', onClick:()=>help()},
+]);
+$('#bSide').innerHTML = icon('list'); $('#bPrev').innerHTML = icon('up'); $('#bNext').innerHTML = icon('down'); $('#bZo').innerHTML = icon('zoomOut'); $('#bZi').innerHTML = icon('zoomIn');
+const wIcons = {open:'open', merge:'merge', img2pdf:'image', split:'split', pdf2img:'convert', sign:'sign', watermark:'watermark', compress:'zip'};
+document.querySelectorAll('.welcome .card').forEach(c => { c.querySelector('svg').innerHTML = Moa.icons[wIcons[c.dataset.a]]; c.onclick = () => ({open:openPdf, merge:mergeDialog, img2pdf:imagesToPdf, split:()=>openPdf().then(()=>pages.length && splitDialog()), pdf2img:()=>openPdf().then(()=>pages.length && pdfToImages()), sign:()=>openPdf().then(()=>pages.length && signatureDialog()), watermark:()=>openPdf().then(()=>pages.length && watermarkDialog()), compress:()=>openPdf().then(()=>pages.length && compressDialog())})[c.dataset.a](); });
+$('#zoomSel').value = S.zoom;
+$('#body').classList.toggle('nosb', !S.side);
+
+function setStatus(s){ $('#status').textContent = s; }
+function markModified(v = true){ modified = v; updateTitle(); }
+function updateTitle(){
+  $('#docTitle').textContent = fileName ? (modified ? '* ' : '') + fileName : 'HANAI PDF';
+  document.title = (fileName ? (modified ? '* ' : '') + fileName + ' - ' : '') + 'HANAI PDF';
+  const enc = [...sources.values()].some(s => s.encrypted);
+  $('#docBadge').textContent = pages.length ? `${pages.length}쪽` + (enc ? ' · 암호/보호 문서 포함' : '') + (deco.wm ? ' · 워터마크' : '') + (deco.pn ? ' · 쪽 번호' : '') : '';
+  $('#welcome').classList.toggle('hidden', pages.length > 0);
+  $('#pgTotal').textContent = '/ ' + pages.length;
+}
+
+/* ================= 실행 취소 ================= */
+const snap = () => ({pages: pages.map(p => ({...p, objs: p.objs.map(o => ({...o}))})), deco: JSON.parse(JSON.stringify(deco))});
+function pushUndo(){ undoStack.push(snap()); if (undoStack.length > 60) undoStack.shift(); redoStack = []; }
+function undo(){ if (!undoStack.length) return toast('취소할 작업이 없습니다'); redoStack.push(snap()); const s = undoStack.pop(); pages = s.pages; deco = s.deco; markModified(); rebuild(); }
+function redo(){ if (!redoStack.length) return; undoStack.push(snap()); const s = redoStack.pop(); pages = s.pages; deco = s.deco; markModified(); rebuild(); }
+
+/* ================= 불러오기 ================= */
+async function askPw(name, wrong){ return Moa.prompt(wrong ? `암호가 틀렸습니다. 다시 입력하세요 - ${name}` : `암호로 보호된 PDF입니다. 암호를 입력하세요 - ${name}`, '', {type:'password'}); }
+async function loadPdfSource(file){
+  const bytes = new Uint8Array(await file.arrayBuffer());
+  const pdf = await MoaPDF.load(bytes, wrong => askPw(file.name, wrong));
+  let encrypted = false;
+  try { await PDFDocument.load(bytes, {updateMetadata:false}); } catch(e){ encrypted = /encrypt/i.test(e.message) || e.constructor?.name === 'EncryptedPDFError'; if (!encrypted) console.warn('pdf-lib 로드 경고', e); }
+  const src = {id: nid(), kind:'pdf', name:file.name, bytes, pdf, encrypted, numPages: pdf.numPages};
+  sources.set(src.id, src);
+  return src;
+}
+async function openPdf(files){
+  if (!files){ files = await Moa.pickFiles({accept:'.pdf,application/pdf,image/*'}); if (!files.length) return; }
+  if (modified && pages.length && !(await Moa.confirm('저장하지 않은 변경 내용이 있습니다. 버리고 새 파일을 열까요?'))) return;
+  resetDoc();
+  await addFiles(files, null, true);
+}
+function resetDoc(){ sources = new Map(); pages = []; pageCache.clear(); selected.clear(); undoStack = []; redoStack = []; deco = {wm:null, pn:null}; meta = {title:'', author:'', subject:'', keywords:''}; fileName = ''; curPage = 0; markModified(false); rebuild(); }
+async function addFiles(files, at, first){
+  const pdfs = files.filter(f => /\.pdf$/i.test(f.name) || f.type === 'application/pdf');
+  const imgs = files.filter(f => /^image\//.test(f.type) || /\.(jpe?g|png|gif|webp|bmp)$/i.test(f.name));
+  if (!pdfs.length && !imgs.length) return toast('PDF나 이미지 파일이 아닙니다');
+  const newPages = [];
+  for (const f of pdfs){
+    setStatus('여는 중: ' + f.name);
+    try {
+      const src = await loadPdfSource(f);
+      for (let i = 0; i < src.numPages; i++) newPages.push({id: nid(), src: src.id, idx: i, rot: 0, objs: []});
+      if (first && !fileName){ fileName = f.name; const md = await src.pdf.getMetadata().catch(() => null); if (md?.info){ meta.title = md.info.Title || ''; meta.author = md.info.Author || ''; meta.subject = md.info.Subject || ''; meta.keywords = md.info.Keywords || ''; } }
+      if (src.encrypted) toast('보호된 PDF입니다. 보기·인쇄는 그대로, 저장할 때는 해당 쪽을 고화질 이미지로 다시 만듭니다.', 4000);
+    } catch(e){ console.error(e); if (e?.name !== 'PasswordException') Moa.alert(`${f.name}\n${e.message || e}`, 'PDF를 열 수 없습니다'); }
+  }
+  if (imgs.length){ const ps = await imagesAsPages(imgs, S.imgPageMode || 'fit'); newPages.push(...ps); if (first && !fileName) fileName = imgs[0].name.replace(/\.[^.]+$/, '') + '.pdf'; }
+  if (!newPages.length){ setStatus('준비'); return; }
+  if (!first) pushUndo();
+  if (at == null) pages.push(...newPages); else pages.splice(at, 0, ...newPages);
+  if (!first) markModified(); else if (imgs.length && !pdfs.length) markModified();
+  rebuild();
+  setStatus(`${newPages.length}쪽을 ${first ? '열었습니다' : '추가했습니다'}`);
+}
+async function imagesAsPages(files, pmode, margin=0){
+  const out = [];
+  for (const f of files){
+    const img = await Moa.loadImage(URL.createObjectURL(f)).catch(() => null); if (!img) continue;
+    let w = img.naturalWidth * 0.75, h = img.naturalHeight * 0.75; // 96dpi → pt
+    if (pmode === 'a4') [w, h] = A4; else if (pmode === 'a4l') [w, h] = [A4[1], A4[0]]; else if (pmode === 'auto') [w, h] = img.naturalWidth > img.naturalHeight ? [A4[1], A4[0]] : A4; else if (pmode === 'letter') [w, h] = [612, 792];
+    // pdf-lib는 JPG/PNG만 → 나머지는 PNG로 변환
+    let bytes = new Uint8Array(await f.arrayBuffer()), mime = f.type;
+    if (!/^image\/(jpeg|png)$/.test(mime)){ const c = document.createElement('canvas'); c.width = img.naturalWidth; c.height = img.naturalHeight; c.getContext('2d').drawImage(img, 0, 0); const b = await Moa.canvasToBlob(c, 'image/png'); bytes = new Uint8Array(await b.arrayBuffer()); mime = 'image/png'; }
+    const src = {id: nid(), kind:'image', name:f.name, img, bytes, mime, size:[w, h], margin: pmode === 'fit' ? 0 : margin};
+    sources.set(src.id, src);
+    out.push({id: nid(), src: src.id, idx: 0, rot: 0, objs: []});
+  }
+  return out;
+}
+Moa.enableDrop(async files => {
+  const ok = files.filter(f => /\.pdf$/i.test(f.name) || /^image\//.test(f.type));
+  if (!ok.length) return toast('PDF나 이미지 파일을 놓으세요');
+  if (!pages.length) return openPdf(ok);
+  const r = await Moa.modal({title:`${ok.length}개 파일`, body:'열린 문서에 어떻게 넣을까요?', buttons:[{label:'취소', value:null}, {label:'새로 열기', value:'open'}, {label:'선택한 쪽 뒤에 넣기', value:'after'}, {label:'맨 뒤에 붙이기', primary:true, value:'end'}]});
+  if (r === 'open') openPdf(ok); else if (r === 'end') addFiles(ok, null); else if (r === 'after') addFiles(ok, insertIndex());
+}, 'PDF·이미지 파일을 놓으세요');
+const insertIndex = () => { const idx = pages.map((p, i) => selected.has(p.id) ? i : -1).filter(i => i >= 0); return idx.length ? Math.max(...idx) + 1 : curPage + 1; };
+
+/* ================= 쪽 정보 / 렌더링 ================= */
+async function pdfPage(src, idx){ const k = src.id + ':' + idx; if (!pageCache.has(k)) pageCache.set(k, src.pdf.getPage(idx + 1)); return pageCache.get(k); }
+/* 화면 방향 기준 쪽 크기(pt) */
+async function pageDims(p){
+  const src = sources.get(p.src);
+  if (src.kind === 'pdf'){ const pg = await pdfPage(src, p.idx); const vp = pg.getViewport({scale:1, rotation:(pg.rotate + p.rot) % 360}); return [vp.width, vp.height]; }
+  const [w, h] = src.size; return p.rot % 180 ? [h, w] : [w, h];
+}
+async function renderBase(p, scale, canvas){
+  const src = sources.get(p.src);
+  if (src.kind === 'pdf'){ const pg = await pdfPage(src, p.idx); return (await MoaPDF.renderPage(pg, scale, p.rot, canvas)).canvas; }
+  const [w0, h0] = src.size; const c = document.createElement('canvas'); c.width = Math.max(1, Math.round(w0 * scale)); c.height = Math.max(1, Math.round(h0 * scale));
+  const g = c.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(0, 0, c.width, c.height);
+  if (src.kind === 'image'){ const m = (src.margin || 0) * scale; const s = Math.min((c.width - 2*m) / src.img.naturalWidth, (c.height - 2*m) / src.img.naturalHeight); const w = src.img.naturalWidth * s, h = src.img.naturalHeight * s; g.drawImage(src.img, (c.width - w) / 2, (c.height - h) / 2, w, h); }
+  let out = c;
+  if (p.rot){ const r = document.createElement('canvas'); const sw = p.rot % 180; r.width = sw ? c.height : c.width; r.height = sw ? c.width : c.height; const rg = r.getContext('2d'); rg.translate(r.width / 2, r.height / 2); rg.rotate(p.rot * Math.PI / 180); rg.drawImage(c, -c.width / 2, -c.height / 2); out = r; }
+  if (canvas){ canvas.width = out.width; canvas.height = out.height; canvas.getContext('2d').drawImage(out, 0, 0); return canvas; }
+  return out;
+}
+/* 주석·워터마크·쪽 번호 그리기 (W,H: 픽셀, 좌표는 0~1 비율) */
+function drawOverlay(ctx, p, W, H, pageNo, total){
+  ctx.save();
+  if (deco.wm){
+    const w = deco.wm; ctx.save(); ctx.globalAlpha = w.opacity;
+    const fs = w.size / 100 * Math.min(W, H);
+    ctx.font = `${w.bold ? 'bold ' : ''}${fs}px "Malgun Gothic","Noto Sans KR",sans-serif`; ctx.fillStyle = w.color; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    const pos = {c:[.5,.5], t:[.5,.12], b:[.5,.88], tl:[.2,.1], tr:[.8,.1], bl:[.2,.9], br:[.8,.9]}[w.pos] || [.5,.5];
+    if (w.tile){ ctx.translate(W/2, H/2); ctx.rotate(-w.angle * Math.PI / 180); const step = fs * 3.2; for (let y = -H; y < H; y += step) for (let x = -W; x < W; x += ctx.measureText(w.text).width + fs * 2) ctx.fillText(w.text, x, y); }
+    else { ctx.translate(W * pos[0], H * pos[1]); ctx.rotate(-w.angle * Math.PI / 180); w.text.split('\n').forEach((ln, i, a) => ctx.fillText(ln, 0, (i - (a.length - 1) / 2) * fs * 1.2)); }
+    ctx.restore();
+  }
+  for (const o of p.objs) drawObj(ctx, o, W, H);
+  if (deco.pn && pageNo >= deco.pn.from){
+    const n = deco.pn, num = pageNo - n.from + n.start, tot = total - n.from + n.start;
+    const txt = n.fmt.replace('{n}', num).replace('{N}', tot);
+    const fs = n.size / 100 * Math.min(W, H) * 0.5 + 6;
+    ctx.font = `${fs}px "Malgun Gothic","Noto Sans KR",sans-serif`; ctx.fillStyle = n.color; ctx.textBaseline = 'middle';
+    let pos = n.pos; if (n.mirror && pageNo % 2 === 0) pos = pos.replace('r', 'X').replace('l', 'r').replace('X', 'l');
+    const my = H * 0.04 + fs / 2, mx = W * 0.06;
+    const y = pos[0] === 't' ? my : H - my; ctx.textAlign = pos[1] === 'l' ? 'left' : pos[1] === 'r' ? 'right' : 'center';
+    const x = pos[1] === 'l' ? mx : pos[1] === 'r' ? W - mx : W / 2;
+    ctx.fillText(txt, x, y);
+  }
+  ctx.restore();
+}
+const imgCache = new Map();
+function objImage(o){ if (!imgCache.has(o.data)){ const im = new Image(); im.src = o.data; imgCache.set(o.data, im); im.onload = () => refreshAnno(); } return imgCache.get(o.data); }
+function drawObj(ctx, o, W, H){
+  ctx.save();
+  const lw = (o.w || 0.003) * W;
+  ctx.strokeStyle = ctx.fillStyle = o.color || '#000'; ctx.lineWidth = lw; ctx.lineCap = ctx.lineJoin = 'round';
+  if (o.type === 'pen' || o.type === 'hl'){
+    if (o.type === 'hl'){ ctx.globalAlpha = .35; ctx.globalCompositeOperation = 'multiply'; ctx.lineCap = 'butt'; }
+    ctx.beginPath(); o.pts.forEach(([x, y], i) => i ? ctx.lineTo(x * W, y * H) : ctx.moveTo(x * W, y * H)); ctx.stroke();
+  } else if (o.type === 'rect'){ o.fill ? ctx.fillRect(o.x * W, o.y * H, o.wd * W, o.ht * H) : ctx.strokeRect(o.x * W, o.y * H, o.wd * W, o.ht * H); }
+  else if (o.type === 'white'){ ctx.fillStyle = '#fff'; ctx.fillRect(o.x * W, o.y * H, o.wd * W, o.ht * H); }
+  else if (o.type === 'ellipse'){ ctx.beginPath(); ctx.ellipse((o.x + o.wd / 2) * W, (o.y + o.ht / 2) * H, Math.abs(o.wd / 2 * W), Math.abs(o.ht / 2 * H), 0, 0, 7); o.fill ? ctx.fill() : ctx.stroke(); }
+  else if (o.type === 'line' || o.type === 'arrow'){
+    const x1 = o.x * W, y1 = o.y * H, x2 = (o.x + o.wd) * W, y2 = (o.y + o.ht) * H;
+    ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
+    if (o.type === 'arrow'){ const a = Math.atan2(y2 - y1, x2 - x1), L = Math.max(8, lw * 4); ctx.beginPath(); ctx.moveTo(x2, y2); ctx.lineTo(x2 - L * Math.cos(a - .45), y2 - L * Math.sin(a - .45)); ctx.lineTo(x2 - L * Math.cos(a + .45), y2 - L * Math.sin(a + .45)); ctx.closePath(); ctx.fill(); }
+  } else if (o.type === 'text'){
+    const fs = o.size * W; ctx.font = `${o.bold ? 'bold ' : ''}${fs}px "Malgun Gothic","Noto Sans KR",sans-serif`; ctx.textBaseline = 'top';
+    const lines = o.text.split('\n'); const lh = fs * 1.25;
+    if (o.bg){ const mw = Math.max(...lines.map(l => ctx.measureText(l).width)); ctx.fillStyle = o.bg; ctx.fillRect(o.x * W - fs * .2, o.y * H - fs * .15, mw + fs * .4, lines.length * lh + fs * .2); ctx.fillStyle = o.color; }
+    lines.forEach((l, i) => ctx.fillText(l, o.x * W, o.y * H + i * lh));
+  } else if (o.type === 'image'){ const im = objImage(o); if (im.complete && im.naturalWidth) ctx.drawImage(im, o.x * W, o.y * H, o.wd * W, o.ht * H); }
+  ctx.restore();
+}
+function objBounds(o, W, H, ctx){
+  if (o.type === 'pen' || o.type === 'hl'){ const xs = o.pts.map(p => p[0]), ys = o.pts.map(p => p[1]); return {x:Math.min(...xs), y:Math.min(...ys), wd:Math.max(...xs) - Math.min(...xs), ht:Math.max(...ys) - Math.min(...ys)}; }
+  if (o.type === 'text'){ const fs = o.size * W; ctx.font = `${o.bold ? 'bold ' : ''}${fs}px "Malgun Gothic",sans-serif`; const lines = o.text.split('\n'); return {x:o.x, y:o.y, wd:Math.max(...lines.map(l => ctx.measureText(l).width)) / W, ht:lines.length * fs * 1.25 / H}; }
+  const x = Math.min(o.x, o.x + o.wd), y = Math.min(o.y, o.y + o.ht); return {x, y, wd:Math.abs(o.wd), ht:Math.abs(o.ht)};
+}
+
+/* ================= 보기 화면 ================= */
+let scale = 1, pageEls = [], io = null, renderGen = 0;
+async function computeScale(){
+  const view = $('#view'); const z = S.zoom;
+  if (!pages.length) return 1;
+  const [w, h] = await pageDims(pages[Math.min(curPage, pages.length - 1)]);
+  if (z === 'width') return Math.max(.2, (view.clientWidth - 48) / w);
+  if (z === 'page') return Math.max(.1, Math.min((view.clientWidth - 48) / w, (view.clientHeight - 40) / h));
+  return +z * 96 / 72;
+}
+async function rebuild(keepScroll){
+  updateTitle();
+  if (mode === 'org'){ renderOrg(); renderSide(); return; }
+  $('#pages').classList.remove('hidden'); $('#org').classList.add('hidden');
+  const gen = ++renderGen;
+  const view = $('#view'); const ratio = view.scrollTop / Math.max(1, view.scrollHeight);
+  scale = await computeScale();
+  if (gen !== renderGen) return;
+  const box = $('#pages'); box.innerHTML = ''; pageEls = [];
+  if (io) io.disconnect();
+  io = new IntersectionObserver(ents => ents.forEach(en => { const d = en.target; if (en.isIntersecting) renderPageEl(d); }), {root:view, rootMargin:'600px 0px'});
+  for (let i = 0; i < pages.length; i++){
+    const p = pages[i]; const [w, h] = await pageDims(p);
+    if (gen !== renderGen) return;
+    const d = el('div', {class:'page' + (i === curPage ? ' cur' : ''), style:{width: Math.round(w * scale) + 'px', height: Math.round(h * scale) + 'px'}});
+    d.dataset.i = i; d.append(el('span',{class:'pno'}, `${i + 1}`));
+    box.append(d); pageEls.push(d); io.observe(d);
+  }
+  if (keepScroll) view.scrollTop = ratio * view.scrollHeight;
+  renderSide(); updatePageUI();
+}
+async function renderPageEl(d){
+  const i = +d.dataset.i, p = pages[i]; if (!p || d.dataset.done === String(scale) + p.rot) return;
+  d.dataset.done = String(scale) + p.rot;
+  const gen = renderGen;
+  const bmp = d.querySelector('canvas.bmp') || el('canvas',{class:'bmp'});
+  const dpr = Math.min(2, devicePixelRatio || 1);
+  try { await renderBase(p, scale * dpr, bmp); } catch(e){ console.warn(e); return; }
+  if (gen !== renderGen) return;
+  if (!bmp.parentNode) d.append(bmp);
+  // 텍스트 레이어
+  const src = sources.get(p.src);
+  d.querySelector('.textLayer')?.remove();
+  if (src.kind === 'pdf'){
+    try {
+      const pg = await pdfPage(src, p.idx);
+      const vp = pg.getViewport({scale, rotation:(pg.rotate + p.rot) % 360});
+      const tl = el('div',{class:'textLayer'}); tl.style.setProperty('--total-scale-factor', scale);
+      d.append(tl);
+      const tlr = new pdfjsLib.TextLayer({textContentSource: await pg.getTextContent(), container: tl, viewport: vp});
+      await tlr.render();
+      if (findState.q) highlightIn(tl, i);
+    } catch(e){ console.warn('텍스트 레이어', e); }
+  }
+  let an = d.querySelector('canvas.anno');
+  if (!an){ an = el('canvas',{class:'anno'}); d.append(an); attachAnno(an, i); }
+  drawAnno(d);
+}
+function drawAnno(d){
+  const i = +d.dataset.i, p = pages[i], an = d.querySelector('canvas.anno'); if (!an || !p) return;
+  const dpr = Math.min(2, devicePixelRatio || 1);
+  an.width = Math.round(d.clientWidth * dpr); an.height = Math.round(d.clientHeight * dpr);
+  const g = an.getContext('2d'); g.clearRect(0, 0, an.width, an.height);
+  drawOverlay(g, p, an.width, an.height, i + 1, pages.length);
+  if (selObj && selObj.page === i){ const b = objBounds(selObj.o, an.width, an.height, g); g.strokeStyle = '#1e88e5'; g.lineWidth = 1.5 * dpr; g.setLineDash([5 * dpr, 3 * dpr]); g.strokeRect(b.x * an.width - 4, b.y * an.height - 4, b.wd * an.width + 8, b.ht * an.height + 8); }
+  if (drawing && drawing.page === i && drawing.o) drawObj(g, drawing.o, an.width, an.height);
+}
+function refreshAnno(){ pageEls.forEach(d => { if (d.querySelector('canvas.anno')) drawAnno(d); }); }
+function updatePageUI(){
+  $('#pgNow').value = pages.length ? curPage + 1 : 0;
+  pageEls.forEach((d, i) => d.classList.toggle('cur', i === curPage));
+  $('#side').querySelectorAll('.tcard').forEach((t, i) => t.classList.toggle('cur', i === curPage));
+  $('#stSel').textContent = selected.size ? `선택 ${selected.size}쪽` : '';
+}
+$('#view').addEventListener('scroll', () => {
+  if (mode !== 'view' || !pageEls.length) return;
+  const v = $('#view'), mid = v.scrollTop + v.clientHeight / 3;
+  let best = 0; for (let i = 0; i < pageEls.length; i++){ if (pageEls[i].offsetTop <= mid) best = i; else break; }
+  if (best !== curPage){ curPage = best; updatePageUI(); const t = $('#side').children[best]; if (t && S.side) t.scrollIntoView({block:'nearest'}); }
+});
+function goPage(i){ if (!pages.length) return; curPage = Math.max(0, Math.min(pages.length - 1, i)); if (mode === 'view' && pageEls[curPage]) $('#view').scrollTop = pageEls[curPage].offsetTop - 10; updatePageUI(); }
+$('#bPrev').onclick = () => goPage(curPage - 1); $('#bNext').onclick = () => goPage(curPage + 1);
+$('#pgNow').onchange = e => goPage((+e.target.value || 1) - 1);
+$('#zoomSel').onchange = e => { S.zoom = e.target.value; saveS(); rebuild(); };
+const ZS = [0.25, 0.33, 0.5, 0.67, 0.75, 1, 1.25, 1.5, 2, 3, 4];
+function zoomStep(d){ const cur = scale * 72 / 96; let z = d > 0 ? ZS.find(x => x > cur + .01) || 4 : [...ZS].reverse().find(x => x < cur - .01) || .25; S.zoom = String(z); if (![...$('#zoomSel').options].some(o => o.value === S.zoom)) $('#zoomSel').append(el('option',{value:S.zoom}, Math.round(z * 100) + '%')); $('#zoomSel').value = S.zoom; saveS(); const cp = curPage; rebuild().then(() => goPage(cp)); }
+$('#bZi').onclick = () => zoomStep(1); $('#bZo').onclick = () => zoomStep(-1);
+$('#view').addEventListener('wheel', e => { if (e.ctrlKey){ e.preventDefault(); zoomStep(e.deltaY < 0 ? 1 : -1); } }, {passive:false});
+$('#bSide').onclick = () => { S.side = !S.side; saveS(); $('#body').classList.toggle('nosb', !S.side); if (S.zoom === 'width' || S.zoom === 'page') setTimeout(() => rebuild(true), 50); };
+let rsT; window.addEventListener('resize', () => { clearTimeout(rsT); rsT = setTimeout(() => { if (S.zoom === 'width' || S.zoom === 'page') rebuild(true); }, 200); });
+
+/* ================= 썸네일 사이드바 ================= */
+const thumbCache = new Map();
+async function thumbFor(p, width){
+  const key = p.src + ':' + p.idx + ':' + p.rot + ':' + width;
+  if (thumbCache.has(key)) return thumbCache.get(key);
+  const pr = (async () => { const [w] = await pageDims(p); return renderBase(p, width / w); })();
+  thumbCache.set(key, pr); return pr;
+}
+function renderSide(){
+  const s = $('#side'); s.innerHTML = '';
+  pages.forEach((p, i) => {
+    const c = el('div', {class:'tcard' + (selected.has(p.id) ? ' sel' : '') + (i === curPage ? ' cur' : ''), draggable:true});
+    c.dataset.i = i; const cv = el('canvas'); c.append(cv, el('div',null, String(i + 1) + (p.rot ? ` ↻${p.rot}°` : '') + (p.objs.length ? ' ✎' : '')));
+    s.append(c);
+    thumbFor(p, 136).then(t => { cv.width = t.width; cv.height = t.height; cv.getContext('2d').drawImage(t, 0, 0); if (p.objs.length || deco.wm || deco.pn) drawOverlay(cv.getContext('2d'), p, t.width, t.height, i + 1, pages.length); }).catch(() => {});
+  });
+}
+function selectClick(e, i){
+  const id = pages[i].id;
+  if (e.shiftKey && lastSel != null){ const a = pages.findIndex(p => p.id === lastSel); if (!e.ctrlKey) selected.clear(); for (let k = Math.min(a, i); k <= Math.max(a, i); k++) selected.add(pages[k].id); }
+  else if (e.ctrlKey || e.metaKey){ selected.has(id) ? selected.delete(id) : selected.add(id); lastSel = id; }
+  else { selected.clear(); selected.add(id); lastSel = id; }
+}
+function refreshSel(){ document.querySelectorAll('.tcard,.ocard').forEach(c => c.classList.toggle('sel', !!pages[+c.dataset.i] && selected.has(pages[+c.dataset.i].id))); updatePageUI(); }
+$('#side').addEventListener('click', e => { const c = e.target.closest('.tcard'); if (!c) return; const i = +c.dataset.i; selectClick(e, i); refreshSel(); goPage(i); });
+$('#side').addEventListener('contextmenu', e => { const c = e.target.closest('.tcard'); if (!c) return; e.preventDefault(); const i = +c.dataset.i; if (!selected.has(pages[i].id)){ selected.clear(); selected.add(pages[i].id); lastSel = pages[i].id; refreshSel(); } pageMenu(e.clientX, e.clientY); });
+function pageMenu(x, y){
+  Moa.menu(x, y, [
+    {label:'오른쪽으로 회전', hint:'Ctrl+R', onClick:()=>rotateSel(90)}, {label:'왼쪽으로 회전', hint:'Ctrl+Shift+R', onClick:()=>rotateSel(-90)}, {label:'180° 회전', onClick:()=>rotateSel(180)},
+    '-', {label:'복제', onClick:dupSel}, {label:'빈 쪽 삽입 (뒤에)', onClick:()=>insertBlank()}, {label:'선택한 쪽 새 PDF로 추출', onClick:extractPages}, {label:'선택한 쪽 이미지로 저장', onClick:()=>pdfToImages(true)},
+    '-', {label:'맨 앞으로', onClick:()=>moveSel('first')}, {label:'맨 뒤로', onClick:()=>moveSel('last')},
+    '-', {label:'주석 지우기', onClick:()=>{ pushUndo(); selPages().forEach(p => p.objs = []); markModified(); rebuild(true); }}, {label:'삭제', hint:'Del', onClick:deleteSel}]);
+}
+// 드래그로 순서 바꾸기 (사이드바·정리 화면 공통)
+let dragFrom = null;
+function dragHandlers(container, cls){
+  container.addEventListener('dragstart', e => { const c = e.target.closest('.' + cls); if (!c) return; const i = +c.dataset.i; if (!selected.has(pages[i].id)){ selected.clear(); selected.add(pages[i].id); refreshSel(); } dragFrom = true; e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', 'pages'); });
+  container.addEventListener('dragover', e => { if (!dragFrom) return; e.preventDefault(); container.querySelectorAll('.drop').forEach(x => x.classList.remove('drop')); const c = e.target.closest('.' + cls); if (c) c.classList.add('drop'); });
+  container.addEventListener('drop', e => { if (!dragFrom) return; e.preventDefault(); e.stopPropagation(); const c = e.target.closest('.' + cls); const target = c ? pages[+c.dataset.i] : null; dragFrom = null; container.querySelectorAll('.drop').forEach(x => x.classList.remove('drop'));
+    pushUndo(); const moving = pages.filter(p => selected.has(p.id)); const rest = pages.filter(p => !selected.has(p.id)); let at = target ? rest.indexOf(target) : rest.length; if (at < 0) at = rest.length; rest.splice(at, 0, ...moving); pages = rest; markModified(); rebuild(); });
+  container.addEventListener('dragend', () => { dragFrom = null; container.querySelectorAll('.drop').forEach(x => x.classList.remove('drop')); });
+}
+dragHandlers($('#side'), 'tcard');
+
+/* ================= 페이지 정리 화면 ================= */
+$('#bMode').onclick = () => setMode(mode === 'view' ? 'org' : 'view');
+function setMode(m){ mode = m; $('#bMode').textContent = m === 'view' ? '▦ 페이지 정리' : '▤ 보기 화면'; if (m === 'org' && tool) setTool(null); rebuild(); }
+function renderOrg(){
+  $('#pages').classList.add('hidden'); const o = $('#org'); o.classList.remove('hidden'); o.innerHTML = '';
+  pages.forEach((p, i) => {
+    const c = el('div',{class:'ocard' + (selected.has(p.id) ? ' sel' : ''), draggable:true}); c.dataset.i = i;
+    const cv = el('canvas');
+    const acts = el('div',{class:'acts'},
+      el('button',{title:'왼쪽 회전', html:icon('rotL'), onclick:e => { e.stopPropagation(); pushUndo(); p.rot = (p.rot + 270) % 360; markModified(); renderOrg(); }}),
+      el('button',{title:'오른쪽 회전', html:icon('rotR'), onclick:e => { e.stopPropagation(); pushUndo(); p.rot = (p.rot + 90) % 360; markModified(); renderOrg(); }}),
+      el('button',{title:'삭제', html:icon('trash'), onclick:e => { e.stopPropagation(); pushUndo(); pages.splice(pages.indexOf(p), 1); selected.delete(p.id); markModified(); rebuild(); }}));
+    c.append(acts, cv, el('div',null, `${i + 1}쪽` + (sources.get(p.src).kind !== 'pdf' ? ` (${sources.get(p.src).kind === 'image' ? '이미지' : '빈 쪽'})` : '') + (p.rot ? ` · ${p.rot}°` : '')));
+    o.append(c);
+    thumbFor(p, 220).then(t => { cv.width = t.width; cv.height = t.height; cv.getContext('2d').drawImage(t, 0, 0); drawOverlay(cv.getContext('2d'), p, t.width, t.height, i + 1, pages.length); });
+  });
+  if (pages.length) o.append(el('div',{class:'ocard', style:{display:'grid', placeItems:'center', minHeight:'200px', border:'2px dashed var(--line)'}, onclick:e => insertMenu(e)}, '＋ 쪽 추가'));
+}
+$('#org').addEventListener('click', e => { const c = e.target.closest('.ocard'); if (!c || c.dataset.i == null) return; selectClick(e, +c.dataset.i); curPage = +c.dataset.i; refreshSel(); });
+$('#org').addEventListener('dblclick', e => { const c = e.target.closest('.ocard'); if (!c || c.dataset.i == null) return; curPage = +c.dataset.i; setMode('view'); setTimeout(() => goPage(+c.dataset.i), 100); });
+$('#org').addEventListener('contextmenu', e => { const c = e.target.closest('.ocard'); if (!c || c.dataset.i == null) return; e.preventDefault(); const i = +c.dataset.i; if (!selected.has(pages[i].id)){ selected.clear(); selected.add(pages[i].id); lastSel = pages[i].id; refreshSel(); } pageMenu(e.clientX, e.clientY); });
+dragHandlers($('#org'), 'ocard');
+
+/* ================= 쪽 작업 ================= */
+const selPages = () => { const s = pages.filter(p => selected.has(p.id)); return s.length ? s : (pages[curPage] ? [pages[curPage]] : []); };
+function rotateSel(d){ const s = selPages(); if (!s.length) return; pushUndo(); s.forEach(p => p.rot = ((p.rot + d) % 360 + 360) % 360); markModified(); rebuild(true); toast(`${s.length}쪽 회전`); }
+async function deleteSel(){ const s = selPages(); if (!s.length) return; if (s.length === pages.length) return toast('모든 쪽을 지울 수는 없습니다'); if (s.length > 1 && !(await Moa.confirm(`${s.length}쪽을 삭제할까요?`))) return; pushUndo(); pages = pages.filter(p => !s.includes(p)); selected.clear(); curPage = Math.min(curPage, pages.length - 1); markModified(); rebuild(); toast(`${s.length}쪽 삭제 (Ctrl+Z로 되돌리기)`); }
+function dupSel(){ const s = selPages(); pushUndo(); const at = Math.max(...s.map(p => pages.indexOf(p))) + 1; pages.splice(at, 0, ...s.map(p => ({...p, id: nid(), objs: p.objs.map(o => ({...o}))}))); markModified(); rebuild(); }
+function moveSel(where){ const s = selPages(); pushUndo(); const rest = pages.filter(p => !s.includes(p)); pages = where === 'first' ? [...s, ...rest] : [...rest, ...s]; markModified(); rebuild(); }
+async function insertBlank(){ const ref = pages[insertIndex() - 1] || pages[0]; const size = ref ? await pageDims(ref) : A4; const src = {id: nid(), kind:'blank', name:'빈 쪽', size}; sources.set(src.id, src); pushUndo(); pages.splice(insertIndex(), 0, {id: nid(), src: src.id, idx: 0, rot: 0, objs: []}); markModified(); rebuild(); }
+function insertMenu(e){ Moa.menu(e.clientX, e.clientY + 10, [
+  {label:'다른 PDF 파일 넣기 (선택한 쪽 뒤)…', onClick: async ()=>{ const f = await Moa.pickFiles({accept:'.pdf,application/pdf'}); if (f.length) addFiles(f, pages.length ? insertIndex() : null, !pages.length); }},
+  {label:'이미지 넣기 (선택한 쪽 뒤)…', onClick: async ()=>{ const f = await Moa.pickFiles({accept:'image/*'}); if (f.length) addFiles(f, pages.length ? insertIndex() : null, !pages.length); }},
+  {label:'빈 쪽 넣기', disabled:!pages.length, onClick:insertBlank},
+  {label:'맨 뒤에 PDF·이미지 붙이기…', onClick: async ()=>{ const f = await Moa.pickFiles({accept:'.pdf,application/pdf,image/*'}); if (f.length) addFiles(f, null, !pages.length); }}]); }
+
+/* ================= 찾기 ================= */
+const findState = {q:'', hits:[], i:-1};
+const textCache = new Map();
+async function pageText(p){ const src = sources.get(p.src); if (src.kind !== 'pdf') return ''; const k = p.src + ':' + p.idx; if (!textCache.has(k)){ const pg = await pdfPage(src, p.idx); const tc = await pg.getTextContent(); textCache.set(k, tc.items.map(it => it.str + (it.hasEOL ? '\n' : '')).join('')); } return textCache.get(k); }
+async function doFind(q, dir=1){
+  if (!q){ findState.q = ''; $('#findInfo').textContent = ''; document.querySelectorAll('.textLayer span.hit').forEach(s => s.classList.remove('hit','now')); return; }
+  if (q !== findState.q){
+    findState.q = q; findState.hits = []; findState.i = -1; $('#findInfo').textContent = '찾는 중…';
+    const ql = q.toLowerCase().replace(/\s+/g, '');
+    for (let i = 0; i < pages.length; i++){ const t = (await pageText(pages[i])).toLowerCase().replace(/\s+/g, ''); let pos = t.indexOf(ql), n = 0; while (pos >= 0){ n++; pos = t.indexOf(ql, pos + 1); } for (let k = 0; k < n; k++) findState.hits.push(i); }
+    document.querySelectorAll('.textLayer').forEach(tl => highlightIn(tl, +tl.parentNode.dataset.i));
+  }
+  if (!findState.hits.length){ $('#findInfo').textContent = '찾는 내용 없음'; return; }
+  findState.i = (findState.i + dir + findState.hits.length) % findState.hits.length;
+  const pi = findState.hits[findState.i];
+  $('#findInfo').textContent = `${findState.i + 1} / ${findState.hits.length} (${pi + 1}쪽)`;
+  if (mode !== 'view') setMode('view');
+  goPage(pi);
+  setTimeout(() => { const tl = pageEls[pi]?.querySelector('.textLayer'); if (!tl) return; const hits = tl.querySelectorAll('span.hit'); const nth = findState.hits.slice(0, findState.i).filter(x => x === pi).length; document.querySelectorAll('span.hit.now').forEach(s => s.classList.remove('now')); const h = hits[Math.min(nth, hits.length - 1)]; if (h){ h.classList.add('now'); h.scrollIntoView({block:'center'}); } }, 350);
+}
+function highlightIn(tl, i){
+  const q = findState.q.toLowerCase().replace(/\s+/g, '');
+  tl.querySelectorAll('span').forEach(s => { const t = s.textContent.toLowerCase().replace(/\s+/g, ''); s.classList.toggle('hit', !!q && t.length > 0 && (t.includes(q) || (q.includes(t) && t.length >= 2))); });
+}
+$('#find').addEventListener('keydown', e => { if (e.key === 'Enter'){ e.preventDefault(); doFind(e.target.value.trim(), e.shiftKey ? -1 : 1); } else if (e.key === 'Escape'){ e.target.value = ''; doFind(''); e.target.blur(); } });
+$('#find').addEventListener('input', e => { if (!e.target.value) doFind(''); });
+
+/* ================= 주석 도구 ================= */
+const TOOLS = [['select','선택·이동','arrow'],['pen','펜','pen'],['hl','형광펜','highlight'],['text','글상자','text'],['rect','사각형','rect'],['ellipse','원','ellipse'],['arrow','화살표','arrow'],['line','선','line'],['white','지우기(흰색 덮기)','minus'],['image','이미지·도장','image']];
+let selObj = null, drawing = null;
+function buildAnnobar(){
+  const b = $('#annobar'); b.innerHTML = '';
+  TOOLS.forEach(([k, n, ic]) => { const btn = el('button',{class:'ibtn' + (tool === k ? ' on' : ''), title:n, html:icon(ic)}); btn.onclick = () => setTool(tool === k ? null : k); b.append(btn); });
+  b.append(el('span',{class:'sep'}),
+    el('input',{type:'color', value:S.annoColor, title:'색', oninput:e => { S.annoColor = e.target.value; saveS(); if (selObj){ selObj.o.color = S.annoColor; refreshAnno(); markModified(); } }}),
+    ...['#e53935','#1e88e5','#43a047','#000000','#fdd835'].map(c => el('button',{style:{width:'18px', height:'18px', borderRadius:'4px', border:'1px solid var(--line)', background:c, cursor:'pointer'}, title:c, onclick:()=>{ S.annoColor = c; saveS(); buildAnnobar(); if (selObj){ selObj.o.color = c; refreshAnno(); } }})),
+    el('span',{class:'dim', style:{marginLeft:'6px'}}, '굵기'), el('input',{type:'range', min:1, max:20, value:S.annoWidth, style:{width:'80px'}, oninput:e => { S.annoWidth = +e.target.value; saveS(); }}),
+    el('span',{class:'dim', style:{marginLeft:'6px'}}, '글자'), el('input',{type:'number', min:6, max:96, value:S.textSize, style:{width:'56px'}, oninput:e => { S.textSize = +e.target.value; saveS(); }}),
+    el('span',{class:'sep'}),
+    el('button',{class:'btn sm', onclick:signatureDialog}, '서명 만들기'), el('button',{class:'btn sm', onclick:stampDialog}, '도장 만들기'),
+    el('button',{class:'btn sm', onclick:()=>{ if (selObj){ pushUndo(); pages[selObj.page].objs.splice(pages[selObj.page].objs.indexOf(selObj.o), 1); selObj = null; markModified(); refreshAnno(); renderSide(); } else toast('지울 주석을 먼저 선택하세요 (선택·이동 도구)'); }}, '선택 주석 삭제'),
+    el('span',{class:'grow'}), el('span',{class:'dim', style:{fontSize:'11px'}}, tool ? hintFor(tool) : '도구를 고르세요 · 저장하면 PDF에 그대로 새겨집니다'),
+    el('button',{class:'btn sm', onclick:()=>{ setTool(null); $('#annobar').classList.add('hidden'); $('#bAnno').classList.remove('primary'); }}, '닫기'));
+}
+const hintFor = t => ({select:'주석을 끌어 옮기고 Delete로 지웁니다', pen:'끌어서 그리기', hl:'형광펜으로 끌기', text:'글자를 넣을 곳을 클릭', rect:'끌어서 사각형', ellipse:'끌어서 원', arrow:'끌어서 화살표', line:'끌어서 선', white:'가릴 영역을 끌기 (흰색으로 덮음)', image:'넣을 곳을 클릭하거나 끌어서 크기 지정'})[t];
+$('#bAnno').onclick = () => { if (!pages.length) return toast('먼저 PDF를 여세요'); const on = $('#annobar').classList.toggle('hidden'); $('#bAnno').classList.toggle('primary', !on); if (!on){ if (mode !== 'view') setMode('view'); if (!tool) setTool('pen'); else buildAnnobar(); } else setTool(null); };
+let pendingImage = null;
+function setTool(t){ tool = t; selObj = null; $('#view').classList.toggle('tool', !!t); $('#view').classList.toggle('tool-select', t === 'select'); buildAnnobar(); refreshAnno(); }
+function attachAnno(an, i){
+  const pt = e => { const r = an.getBoundingClientRect(); return [(e.clientX - r.left) / r.width, (e.clientY - r.top) / r.height]; };
+  an.addEventListener('pointerdown', async e => {
+    if (!tool) return; e.preventDefault(); const [x, y] = pt(e); const p = pages[i]; curPage = i; updatePageUI();
+    const W = an.width, H = an.height, color = S.annoColor, w = S.annoWidth / 600;
+    if (tool === 'select'){
+      const g = an.getContext('2d'); selObj = null;
+      for (let k = p.objs.length - 1; k >= 0; k--){ const b = objBounds(p.objs[k], W, H, g); const pad = 6 / W; if (x >= b.x - pad && x <= b.x + b.wd + pad && y >= b.y - pad && y <= b.y + b.ht + pad){ selObj = {page:i, o:p.objs[k]}; break; } }
+      refreshAnno();
+      if (selObj){ pushUndo(); const o = selObj.o, sx = x, sy = y, orig = JSON.parse(JSON.stringify(o)); an.setPointerCapture(e.pointerId);
+        const mv = ev => { const [nx, ny] = pt(ev); const dx = nx - sx, dy = ny - sy; if (o.pts) o.pts = orig.pts.map(([a, b]) => [a + dx, b + dy]); else { o.x = orig.x + dx; o.y = orig.y + dy; } drawAnno(an.parentNode); };
+        const up = () => { an.removeEventListener('pointermove', mv); an.removeEventListener('pointerup', up); markModified(); renderSide(); };
+        an.addEventListener('pointermove', mv); an.addEventListener('pointerup', up);
+        if (e.detail === 2 && o.type === 'text'){ const t = await textPrompt(o.text, o.bg); if (t){ o.text = t.text; o.bg = t.bg; markModified(); refreshAnno(); } }
+      }
+      return;
+    }
+    if (tool === 'text'){
+      const t = await textPrompt('', null); if (!t || !t.text) return;
+      pushUndo(); const o = {type:'text', x, y, text:t.text, color, size: S.textSize / 600, bold:t.bold, bg:t.bg}; p.objs.push(o); markModified(); drawAnno(an.parentNode); renderSide(); setTool('select'); selObj = {page:i, o}; refreshAnno(); return;
+    }
+    if (tool === 'image' && !pendingImage){ toast('먼저 서명 또는 도장을 만들거나 이미지 파일을 고르세요'); const f = await Moa.pickFiles({accept:'image/*', multiple:false}); if (!f.length) return; const url = await fileToDataURL(f[0]); const im = await Moa.loadImage(url); pendingImage = {data:url, ar: im.naturalHeight / im.naturalWidth}; return; }
+    drawing = {page:i, start:[x, y]};
+    if (tool === 'pen' || tool === 'hl') drawing.o = {type:tool, pts:[[x, y]], color: tool === 'hl' && color === '#e53935' ? '#fdd835' : color, w: tool === 'hl' ? w * 5 : w};
+    else if (tool === 'image') drawing.o = {type:'image', x, y, wd:0, ht:0, data:pendingImage.data};
+    else drawing.o = {type:tool, x, y, wd:0, ht:0, color, w};
+    an.setPointerCapture(e.pointerId);
+    const mv = ev => { const [nx, ny] = pt(ev); const o = drawing.o; if (o.pts) o.pts.push([nx, ny]); else { o.wd = nx - o.x; o.ht = ny - o.y; if (o.type === 'image'){ o.ht = o.wd * pendingImage.ar * W / H; } if (ev.shiftKey && (o.type === 'rect' || o.type === 'ellipse')){ o.ht = Math.sign(o.ht || 1) * Math.abs(o.wd) * W / H; } } drawAnno(an.parentNode); };
+    const up = () => { an.removeEventListener('pointermove', mv); an.removeEventListener('pointerup', up);
+      const o = drawing.o; drawing = null;
+      if (o.type === 'image' && Math.abs(o.wd) < 0.01){ o.wd = 0.25; o.ht = o.wd * pendingImage.ar * W / H; o.x -= o.wd / 2; o.y -= o.ht / 2; }
+      if (o.wd < 0 && o.type !== 'line' && o.type !== 'arrow'){ o.x += o.wd; o.wd = -o.wd; } if (o.ht < 0 && o.type !== 'line' && o.type !== 'arrow'){ o.y += o.ht; o.ht = -o.ht; }
+      const tiny = o.pts ? o.pts.length < 2 : Math.abs(o.wd) + Math.abs(o.ht) < 0.004;
+      if (!tiny){ pushUndo(); p.objs.push(o); markModified(); renderSide(); }
+      drawAnno(an.parentNode);
+      if (o.type === 'image'){ setTool('select'); selObj = {page:i, o}; refreshAnno(); }
+    };
+    an.addEventListener('pointermove', mv); an.addEventListener('pointerup', up);
+  });
+}
+function textPrompt(val, bg){
+  const ta = el('textarea',{style:{width:'min(420px,80vw)', height:'100px'}}); ta.value = val || '';
+  const bold = el('input',{type:'checkbox'}), bgc = el('input',{type:'checkbox', checked:!!bg});
+  return Moa.modal({title:'글상자', body: el('div',null, ta, el('div',{class:'row', style:{marginTop:'8px'}}, el('label',{class:'chk'}, bold, '굵게'), el('label',{class:'chk'}, bgc, '흰 배경 (원래 글자 가리기)'))), buttons:[{label:'취소', value:null}, {label:'확인', primary:true, onClick:()=>({text:ta.value, bold:bold.checked, bg: bgc.checked ? '#ffffff' : null})}]});
+}
+const fileToDataURL = f => new Promise(r => { const fr = new FileReader(); fr.onload = () => r(fr.result); fr.readAsDataURL(f); });
+function signatureDialog(){
+  if (!pages.length) return toast('먼저 PDF를 여세요');
+  const cv = el('canvas',{class:'sigpad', width:520, height:200, style:{width:'min(520px,80vw)'}});
+  const g = cv.getContext('2d'); g.lineCap = g.lineJoin = 'round'; let col = '#0d1b6e', lw = 3, last = null, inked = false;
+  cv.onpointerdown = e => { cv.setPointerCapture(e.pointerId); const r = cv.getBoundingClientRect(); last = [(e.clientX - r.left) * cv.width / r.width, (e.clientY - r.top) * cv.height / r.height]; };
+  cv.onpointermove = e => { if (!last) return; const r = cv.getBoundingClientRect(); const p = [(e.clientX - r.left) * cv.width / r.width, (e.clientY - r.top) * cv.height / r.height]; g.strokeStyle = col; g.lineWidth = lw * (e.pressure ? .6 + e.pressure : 1); g.beginPath(); g.moveTo(...last); g.lineTo(...p); g.stroke(); last = p; inked = true; };
+  cv.onpointerup = () => last = null;
+  const typed = el('input',{type:'text', placeholder:'또는 이름을 입력하면 글씨체 서명으로 만듭니다', style:{width:'100%'}});
+  typed.oninput = () => { g.clearRect(0, 0, cv.width, cv.height); g.fillStyle = col; g.font = 'italic 64px "Gungsuh","Batang","Malgun Gothic",serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(typed.value, cv.width / 2, cv.height / 2); inked = !!typed.value; };
+  const saved = Moa.store.get('moapdf.signs', []);
+  const savedRow = el('div',{class:'row', style:{flexWrap:'wrap', margin:'6px 0'}}, ...saved.map((d, k) => el('img',{src:d, title:'저장된 서명 사용 (오른쪽 클릭: 삭제)', style:{height:'40px', background:'#fff', border:'1px solid var(--line)', borderRadius:'6px', cursor:'pointer', padding:'2px'}, onclick:()=>{ useImage(d); Moa._lastModal.close(); }, oncontextmenu:e => { e.preventDefault(); saved.splice(k, 1); Moa.store.set('moapdf.signs', saved); e.target.remove(); }})));
+  const body = el('div',null, saved.length ? el('div',{class:'dim'}, '저장된 서명') : null, savedRow, el('div',{class:'dim', style:{margin:'6px 0'}}, '아래 칸에 마우스·펜으로 서명하세요.'), cv,
+    el('div',{class:'row', style:{margin:'8px 0'}}, ...['#0d1b6e','#000000','#c62828'].map(c => el('button',{style:{width:'22px', height:'22px', borderRadius:'50%', background:c, border:'2px solid var(--line)'}, onclick:()=>{ col = c; }})), el('span',{class:'dim'}, '굵기'), el('input',{type:'range', min:1, max:8, value:3, oninput:e => lw = +e.target.value}), el('button',{class:'btn sm', onclick:()=>{ g.clearRect(0, 0, cv.width, cv.height); inked = false; typed.value = ''; }}, '지우기')),
+    typed, el('label',{class:'chk', style:{marginTop:'8px'}}, el('input',{type:'checkbox', id:'sigKeep', checked:true}), '이 서명을 다음에도 쓰도록 저장'));
+  Moa.modal({title:'서명 만들기', body, width:'auto', buttons:[{label:'취소', value:null}, {label:'문서에 넣기', primary:true, onClick:()=>{
+    if (!inked) { toast('서명을 그리거나 입력하세요'); return false; }
+    const data = trimCanvas(cv).toDataURL('image/png');
+    if (body.querySelector('#sigKeep').checked){ saved.unshift(data); Moa.store.set('moapdf.signs', saved.slice(0, 6)); }
+    useImage(data);
+  }}]});
+}
+function stampDialog(){
+  if (!pages.length) return toast('먼저 PDF를 여세요');
+  const o = {text:'승인', shape:'circle', color:'#d32f2f', sub:new Date().toLocaleDateString('ko-KR')};
+  const cv = el('canvas',{width:300, height:300, style:{width:'150px', background:'#fff', borderRadius:'8px', border:'1px solid var(--line)'}});
+  const drawS = () => { const g = cv.getContext('2d'); g.clearRect(0, 0, 300, 300); g.strokeStyle = g.fillStyle = o.color; g.lineWidth = 12; g.textAlign = 'center'; g.textBaseline = 'middle';
+    if (o.shape === 'circle'){ g.beginPath(); g.arc(150, 150, 135, 0, 7); g.stroke(); g.beginPath(); g.arc(150, 150, 115, 0, 7); g.lineWidth = 3; g.stroke(); }
+    else { g.strokeRect(14, 60, 272, 180); g.lineWidth = 3; g.strokeRect(30, 76, 240, 148); }
+    const fs = Math.min(110, 220 / Math.max(1, o.text.length) * 1.3); g.font = `bold ${fs}px "Malgun Gothic",sans-serif`; g.fillText(o.text, 150, o.sub ? 135 : 150);
+    if (o.sub){ g.font = 'bold 28px "Malgun Gothic",sans-serif'; g.fillText(o.sub, 150, 205); } };
+  drawS();
+  const body = el('div',{class:'row', style:{alignItems:'flex-start', gap:'16px'}}, cv, el('div',{class:'col'},
+    el('label',null, '도장 글자 ', el('input',{type:'text', value:o.text, oninput:e => { o.text = e.target.value; drawS(); }})),
+    el('div',{class:'row', style:{flexWrap:'wrap'}}, ...['승인','확인','검토','반려','완료','기밀','사본','긴급'].map(t => el('button',{class:'btn sm', onclick:()=>{ o.text = t; body.querySelector('input').value = t; drawS(); }}, t))),
+    el('label',null, '아랫줄 ', el('input',{type:'text', value:o.sub, oninput:e => { o.sub = e.target.value; drawS(); }})),
+    el('div',{class:'row'}, el('label',{class:'chk'}, el('input',{type:'radio', name:'stS', checked:true, onchange:()=>{ o.shape = 'circle'; drawS(); }}), '원형'), el('label',{class:'chk'}, el('input',{type:'radio', name:'stS', onchange:()=>{ o.shape = 'rect'; drawS(); }}), '사각형')),
+    el('div',{class:'row'}, ...['#d32f2f','#1565c0','#2e7d32','#000000'].map(c => el('button',{style:{width:'22px', height:'22px', borderRadius:'50%', background:c, border:'2px solid var(--line)'}, onclick:()=>{ o.color = c; drawS(); }})))));
+  Moa.modal({title:'도장 만들기', body, width:'auto', buttons:[{label:'취소', value:null}, {label:'문서에 넣기', primary:true, onClick:()=>{ useImage(trimCanvas(cv).toDataURL('image/png')); }}]});
+}
+function trimCanvas(cv){
+  const g = cv.getContext('2d'), d = g.getImageData(0, 0, cv.width, cv.height).data; let x0 = cv.width, y0 = cv.height, x1 = 0, y1 = 0;
+  for (let y = 0; y < cv.height; y++) for (let x = 0; x < cv.width; x++) if (d[(y * cv.width + x) * 4 + 3] > 10){ if (x < x0) x0 = x; if (y < y0) y0 = y; if (x > x1) x1 = x; if (y > y1) y1 = y; }
+  if (x1 < x0) return cv; const pad = 6; x0 = Math.max(0, x0 - pad); y0 = Math.max(0, y0 - pad); x1 = Math.min(cv.width - 1, x1 + pad); y1 = Math.min(cv.height - 1, y1 + pad);
+  const o = document.createElement('canvas'); o.width = x1 - x0 + 1; o.height = y1 - y0 + 1; o.getContext('2d').drawImage(cv, -x0, -y0); return o;
+}
+async function useImage(data){
+  const im = await Moa.loadImage(data); pendingImage = {data, ar: im.naturalHeight / im.naturalWidth};
+  if (mode !== 'view') setMode('view');
+  $('#annobar').classList.remove('hidden'); $('#bAnno').classList.add('primary'); setTool('image');
+  toast('넣을 위치를 클릭하세요 (끌면 크기 조절)', 3000);
+}
+
+/* ================= 저장 (PDF 만들기) ================= */
+async function overlayPng(p, pageNo, total, wPt, hPt, needBase){
+  const k = Math.min(3, 2400 / Math.max(wPt, hPt)) || 2;
+  const c = document.createElement('canvas'); c.width = Math.round(wPt * k); c.height = Math.round(hPt * k);
+  drawOverlay(c.getContext('2d'), p, c.width, c.height, pageNo, total);
+  // 그려진 게 없으면 생략
+  const d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data; let any = false; for (let i = 3; i < d.length; i += 16) if (d[i]){ any = true; break; }
+  if (!any) return null;
+  return new Uint8Array(await (await Moa.canvasToBlob(c, 'image/png')).arrayBuffer());
+}
+async function buildPdf(list, opts={}){
+  const out = await PDFDocument.create();
+  const total = pages.length;
+  const libDocs = new Map();
+  let rasterWarned = false;
+  for (let n = 0; n < list.length; n++){
+    const p = list[n], src = sources.get(p.src), pageNo = pages.indexOf(p) + 1 || n + 1;
+    opts.onProgress && await opts.onProgress(n / list.length, `${n + 1} / ${list.length}쪽`);
+    let page;
+    const raster = opts.rasterDpi || (src.kind === 'pdf' && src.encrypted);
+    if (src.kind === 'pdf' && !raster){
+      let ld = libDocs.get(src.id); if (!ld){ ld = await PDFDocument.load(src.bytes, {ignoreEncryption:true, updateMetadata:false}); libDocs.set(src.id, ld); }
+      const [cp] = await out.copyPages(ld, [p.idx]); page = out.addPage(cp);
+      page.setRotation(degrees(((cp.getRotation().angle || 0) + p.rot) % 360));
+    } else if (raster && src.kind === 'pdf'){
+      const [w, h] = await pageDims(p); const dpi = opts.rasterDpi || 200;
+      const c = await renderBase(p, dpi / 72);
+      const blob = await Moa.canvasToBlob(c, 'image/jpeg', opts.rasterQuality || .85);
+      const img = await out.embedJpg(new Uint8Array(await blob.arrayBuffer()));
+      page = out.addPage([w, h]); page.drawImage(img, {x:0, y:0, width:w, height:h});
+      // 화면 방향 그대로 래스터했으므로 회전 없음 → 주석도 회전 없이
+      const ov = await overlayPng(p, pageNo, total, w, h); if (ov){ const oi = await out.embedPng(ov); page.drawImage(oi, {x:0, y:0, width:w, height:h}); }
+      if (src.encrypted && !rasterWarned && !opts.rasterDpi){ rasterWarned = true; }
+      continue;
+    } else {
+      const [w, h] = src.size; page = out.addPage([w, h]);
+      if (src.kind === 'image'){
+        const img = src.mime === 'image/png' ? await out.embedPng(src.bytes) : await out.embedJpg(src.bytes);
+        const m = src.margin || 0; const s = Math.min((w - 2*m) / img.width, (h - 2*m) / img.height); const iw = img.width * s, ih = img.height * s;
+        page.drawImage(img, {x:(w - iw) / 2, y:(h - ih) / 2, width:iw, height:ih});
+      }
+      page.setRotation(degrees(p.rot));
+    }
+    // 주석·워터마크·쪽 번호를 그림으로 새김 (회전 고려)
+    const R = ((page.getRotation().angle % 360) + 360) % 360;
+    const box = page.getCropBox ? page.getCropBox() : page.getMediaBox();
+    const W = box.width, H = box.height;
+    const [dw, dh] = R % 180 ? [H, W] : [W, H];
+    const ov = await overlayPng(p, pageNo, total, dw, dh);
+    if (ov){
+      const oi = await out.embedPng(ov);
+      const pos = {0:[0, 0], 90:[W, 0], 180:[W, H], 270:[0, H]}[R];
+      page.drawImage(oi, {x: box.x + pos[0], y: box.y + pos[1], width: dw, height: dh, rotate: degrees(R)});
+    }
+  }
+  out.setTitle(meta.title || ''); out.setAuthor(meta.author || ''); out.setSubject(meta.subject || ''); if (meta.keywords) out.setKeywords(String(meta.keywords).split(/[,;]\s*/));
+  out.setProducer('HANAI PDF (HANAI Tools)'); out.setCreator('HANAI PDF'); out.setModificationDate(new Date());
+  opts.onProgress && await opts.onProgress(1, '파일 만드는 중…');
+  return out.save({useObjectStreams: true});
+}
+function progress(title){
+  const bar = el('i'), txt = el('div',{class:'dim', style:{fontSize:'12px', marginTop:'8px', width:'340px'}});
+  const st = {cancelled:false};
+  Moa.modal({title, body: el('div',null, el('div',{class:'progress'}, bar), txt), closeOnBg:false, buttons:[{label:'취소', onClick:()=>{ st.cancelled = true; }}]});
+  const m = Moa._lastModal; st.set = async (f, t) => { if (st.cancelled) throw new Error('취소했습니다'); bar.style.width = f * 100 + '%'; txt.textContent = t || ''; await new Promise(r => setTimeout(r, 0)); }; st.close = () => m.close(); return st;
+}
+async function saveDoc(){
+  if (!pages.length) return toast('저장할 문서가 없습니다');
+  const enc = [...sources.values()].some(s => s.encrypted && pages.some(p => p.src === s.id));
+  if (enc && !(await Moa.confirm('보호(암호화)된 PDF의 쪽은 편집 저장을 위해 고화질 이미지(200dpi)로 다시 만듭니다. 글자 선택은 되지 않습니다. 계속할까요?'))) return;
+  const prog = progress('PDF 저장 중');
+  try {
+    const bytes = await buildPdf(pages, {onProgress: prog.set});
+    prog.close();
+    const name = (fileName || '문서.pdf').replace(/\.pdf$/i, '') + '.pdf';
+    if (await Moa.saveAs(new Blob([bytes], {type:'application/pdf'}), name, [{description:'PDF 문서', accept:{'application/pdf':['.pdf']}}])){ markModified(false); setStatus(`저장했습니다: ${name} (${Moa.fmtBytes(bytes.length)})`); }
+  } catch(e){ prog.close(); console.error(e); if (e.message !== '취소했습니다') Moa.alert(e.message || String(e), '저장 실패'); }
+}
+async function printDoc(){
+  if (!pages.length) return toast('인쇄할 문서가 없습니다');
+  const prog = progress('인쇄 준비 중');
+  try {
+    const bytes = await buildPdf(pages, {onProgress: prog.set}); prog.close();
+    const url = URL.createObjectURL(new Blob([bytes], {type:'application/pdf'}));
+    const fr = el('iframe',{src:url, style:{position:'fixed', right:0, bottom:0, width:'1px', height:'1px', border:0, opacity:0}});
+    document.body.append(fr);
+    fr.onload = () => { setTimeout(() => { try { fr.contentWindow.focus(); fr.contentWindow.print(); } catch(e){ window.open(url, '_blank'); } }, 400); };
+    setTimeout(() => fr.remove(), 120000);
+  } catch(e){ prog.close(); if (e.message !== '취소했습니다') Moa.alert(e.message); }
+}
+
+/* ================= 합치기 / 나누기 / 추출 ================= */
+async function mergeDialog(){
+  let files = await Moa.pickFiles({accept:'.pdf,application/pdf,image/*'}); if (!files.length) return;
+  const list = el('div',{class:'flist'});
+  const draw = () => { list.innerHTML = ''; files.forEach((f, i) => list.append(el('div',null, el('b',null, i + 1 + '.'), el('span',null, f.name), el('span',{class:'dim', style:{flex:'none'}}, Moa.fmtBytes(f.size)),
+    el('button',{class:'ibtn', title:'위로', html:icon('up'), onclick:()=>{ if (i){ [files[i-1], files[i]] = [files[i], files[i-1]]; draw(); } }}),
+    el('button',{class:'ibtn', title:'아래로', html:icon('down'), onclick:()=>{ if (i < files.length - 1){ [files[i+1], files[i]] = [files[i], files[i+1]]; draw(); } }}),
+    el('button',{class:'ibtn', title:'빼기', html:icon('x'), onclick:()=>{ files.splice(i, 1); draw(); }})))); };
+  draw();
+  const body = el('div',{style:{width:'min(560px,88vw)'}}, el('div',{class:'dim', style:{marginBottom:'8px'}}, '위에서부터 순서대로 합칩니다. 이미지도 쪽으로 들어갑니다.'), list,
+    el('div',{class:'row', style:{marginTop:'8px'}}, el('button',{class:'btn sm', onclick: async ()=>{ const more = await Moa.pickFiles({accept:'.pdf,application/pdf,image/*'}); files.push(...more); draw(); }}, '＋ 파일 더 추가'), el('button',{class:'btn sm', onclick:()=>{ files.sort((a, b) => a.name.localeCompare(b.name, 'ko', {numeric:true})); draw(); }}, '이름순 정렬')));
+  const r = await Moa.modal({title:'PDF 합치기', body, width:'auto', buttons:[{label:'취소', value:null}, ...(pages.length ? [{label:'열린 문서 뒤에 붙이기', value:'append'}] : []), {label:'합치기', primary:true, value:'new'}]});
+  if (!r || !files.length) return;
+  if (r === 'new'){ if (modified && pages.length && !(await Moa.confirm('저장하지 않은 변경 내용을 버릴까요?'))) return; resetDoc(); }
+  for (let i = 0; i < files.length; i++) await addFiles([files[i]], null, r === 'new' && i === 0);
+  if (r === 'new'){ fileName = '합친 문서.pdf'; markModified(true); }
+  toast(`${files.length}개 파일을 합쳤습니다. 저장(Ctrl+S)을 누르세요.`, 3000);
+}
+async function extractPages(){
+  const s = selPages(); if (!s.length) return toast('추출할 쪽을 선택하세요 (썸네일에서 Ctrl/Shift+클릭)');
+  const prog = progress('쪽 추출 중');
+  try { const bytes = await buildPdf(s, {onProgress: prog.set}); prog.close(); await Moa.saveAs(new Blob([bytes], {type:'application/pdf'}), (fileName || '문서').replace(/\.pdf$/i, '') + `_${s.map(p => pages.indexOf(p) + 1).join(',').slice(0, 40)}쪽.pdf`); }
+  catch(e){ prog.close(); if (e.message !== '취소했습니다') Moa.alert(e.message); }
+}
+async function splitDialog(){
+  if (!pages.length) return toast('먼저 PDF를 여세요');
+  const N = pages.length;
+  const body = el('div',{style:{width:'min(500px,88vw)'}, html:`
+    <div class="dim" style="margin-bottom:8px">전체 ${N}쪽</div>
+    <label class="chk" style="display:flex;margin:6px 0"><input type="radio" name="sp" value="each" checked> 한 쪽씩 모두 나누기 (${N}개 파일)</label>
+    <label class="chk" style="display:flex;margin:6px 0"><input type="radio" name="sp" value="n"> <span>몇 쪽씩: <input type="number" id="spN" value="2" min="1" max="${N}" style="width:60px"> 쪽마다 나누기</span></label>
+    <label class="chk" style="display:flex;margin:6px 0"><input type="radio" name="sp" value="range"> <span>범위 지정: <input type="text" id="spR" placeholder="예: 1-3, 4-6, 7-" style="width:200px"></span></label>
+    <div class="dim" style="font-size:11.5px;margin-left:22px">쉼표로 구분한 범위마다 파일 하나가 만들어집니다.</div>
+    <label class="chk" style="display:flex;margin:6px 0"><input type="radio" name="sp" value="half"> 반으로 나누기</label>
+    <label class="field" style="margin-top:12px"><span>저장 방법</span><select id="spOut"><option value="zip">ZIP 파일 하나로</option><option value="folder">폴더 선택</option><option value="each">파일별 다운로드</option></select></label>`});
+  if (!window.showDirectoryPicker) body.querySelector('#spOut option[value=folder]').remove();
+  const ok = await Moa.modal({title:'PDF 나누기', body, width:'auto', buttons:[{label:'취소', value:false}, {label:'나누기', primary:true, value:true}]});
+  if (!ok) return;
+  const how = body.querySelector('input[name=sp]:checked').value; let groups;
+  try {
+    if (how === 'each') groups = pages.map((_, i) => [i]);
+    else if (how === 'n'){ const n = Math.max(1, +body.querySelector('#spN').value || 1); groups = []; for (let i = 0; i < N; i += n) groups.push([...Array(Math.min(n, N - i)).keys()].map(k => i + k)); }
+    else if (how === 'half'){ const h = Math.ceil(N / 2); groups = [[...Array(h).keys()], [...Array(N - h).keys()].map(k => k + h)].filter(g => g.length); }
+    else groups = MoaPDF.parseRanges(body.querySelector('#spR').value, N);
+  } catch(e){ return Moa.alert(e.message); }
+  if (!groups.length) return toast('나눌 범위가 없습니다');
+  const outMode = body.querySelector('#spOut').value;
+  let dir = null; if (outMode === 'folder'){ try { dir = await showDirectoryPicker({mode:'readwrite', id:'moapdf-split'}); } catch(e){ return; } }
+  const base = (fileName || '문서').replace(/\.pdf$/i, '');
+  const prog = progress('PDF 나누는 중'); const zipItems = [];
+  try {
+    for (let g = 0; g < groups.length; g++){
+      await prog.set(g / groups.length, `${g + 1} / ${groups.length}번째 파일`);
+      const list = groups[g].map(i => pages[i]);
+      const bytes = await buildPdf(list);
+      const a = groups[g][0] + 1, b = groups[g][groups[g].length - 1] + 1;
+      const name = `${base}_${a === b ? a : a + '-' + b}쪽.pdf`;
+      if (dir){ const fh = await dir.getFileHandle(name, {create:true}); const w = await fh.createWritable(); await w.write(bytes); await w.close(); }
+      else if (outMode === 'zip') zipItems.push({name, data:bytes, mtime:new Date()});
+      else { Moa.download(new Blob([bytes], {type:'application/pdf'}), name); await new Promise(r => setTimeout(r, 300)); }
+    }
+    if (zipItems.length){ await prog.set(1, 'ZIP 만드는 중'); const z = await MoaZip.writeZip(zipItems, {level:0}); prog.close(); await Moa.saveAs(z, base + '_나누기.zip'); } else prog.close();
+    toast(`${groups.length}개 파일로 나눴습니다`, 3000);
+  } catch(e){ prog.close(); if (e.message !== '취소했습니다') Moa.alert(e.message); }
+}
+
+/* ================= 변환 ================= */
+async function imagesToPdf(){
+  const files = await Moa.pickFiles({accept:'image/*'}); if (!files.length) return;
+  files.sort((a, b) => a.name.localeCompare(b.name, 'ko', {numeric:true}));
+  const body = el('div',{style:{width:'min(460px,86vw)'}, html:`
+    <div class="dim" style="margin-bottom:8px">${files.length}장 (파일 이름순)</div>
+    <label class="field"><span>쪽 크기</span><select id="ipS"><option value="fit">이미지 크기 그대로</option><option value="auto">A4 (사진 방향에 맞춤)</option><option value="a4">A4 세로</option><option value="a4l">A4 가로</option><option value="letter">Letter</option></select></label>
+    <label class="field"><span>여백(mm)</span><input type="number" id="ipM" value="10" min="0" max="50"></label>`});
+  body.querySelector('#ipS').value = S.imgPageMode || 'auto';
+  const r = await Moa.modal({title:'이미지 → PDF', body, width:'auto', buttons:[{label:'취소', value:null}, ...(pages.length ? [{label:'열린 문서에 추가', value:'add'}] : []), {label:'새 PDF 만들기', primary:true, value:'new'}]});
+  if (!r) return;
+  S.imgPageMode = body.querySelector('#ipS').value; saveS();
+  const margin = (+body.querySelector('#ipM').value || 0) * 72 / 25.4;
+  if (r === 'new'){ if (modified && pages.length && !(await Moa.confirm('저장하지 않은 변경 내용을 버릴까요?'))) return; resetDoc(); fileName = files[0].name.replace(/\.[^.]+$/, '') + '.pdf'; }
+  const ps = await imagesAsPages(files, S.imgPageMode, margin);
+  if (r === 'add') pushUndo();
+  pages.push(...ps); markModified(); rebuild();
+  toast(`이미지 ${ps.length}장을 PDF 쪽으로 만들었습니다. 저장(Ctrl+S)하세요.`, 3000);
+}
+async function pdfToImages(onlySel){
+  if (!pages.length) return toast('먼저 PDF를 여세요');
+  const body = el('div',{style:{width:'min(460px,86vw)'}, html:`
+    <label class="field"><span>대상 쪽</span><input type="text" id="piR" value="${onlySel ? selPages().map(p => pages.indexOf(p) + 1).join(',') : '1-' + pages.length}"></label>
+    <label class="field"><span>형식</span><select id="piF"><option value="image/jpeg">JPG</option><option value="image/png">PNG</option><option value="image/webp">WEBP</option></select></label>
+    <label class="field"><span>해상도</span><select id="piD"><option value="72">72 DPI (화면용)</option><option value="150">150 DPI (보통)</option><option value="200">200 DPI</option><option value="300">300 DPI (인쇄용)</option></select></label>
+    <label class="field"><span>저장 방법</span><select id="piO"><option value="zip">ZIP 파일 하나로</option><option value="folder">폴더 선택</option><option value="each">파일별 다운로드</option></select></label>`});
+  body.querySelector('#piF').value = S.imgFmt; body.querySelector('#piD').value = String(S.dpi);
+  if (!window.showDirectoryPicker) body.querySelector('#piO option[value=folder]').remove();
+  const ok = await Moa.modal({title:'PDF → 이미지', body, width:'auto', buttons:[{label:'취소', value:false}, {label:'변환', primary:true, value:true}]});
+  if (!ok) return;
+  let idx; try { idx = MoaPDF.parseRanges(body.querySelector('#piR').value, pages.length).flat(); } catch(e){ return Moa.alert(e.message); }
+  S.imgFmt = body.querySelector('#piF').value; S.dpi = +body.querySelector('#piD').value; saveS();
+  const out = body.querySelector('#piO').value; let dir = null; if (out === 'folder'){ try { dir = await showDirectoryPicker({mode:'readwrite', id:'moapdf-img'}); } catch(e){ return; } }
+  const extn = {'image/jpeg':'.jpg','image/png':'.png','image/webp':'.webp'}[S.imgFmt]; const base = (fileName || '문서').replace(/\.pdf$/i, '');
+  const prog = progress('이미지로 변환 중'); const zipItems = [];
+  try {
+    for (let k = 0; k < idx.length; k++){
+      const i = idx[k]; await prog.set(k / idx.length, `${i + 1}쪽`);
+      const p = pages[i]; const c = await renderBase(p, S.dpi / 72); drawOverlay(c.getContext('2d'), p, c.width, c.height, i + 1, pages.length);
+      const blob = await Moa.canvasToBlob(c, S.imgFmt, .92); const name = `${base}_${String(i + 1).padStart(String(pages.length).length, '0')}${extn}`;
+      if (dir){ const fh = await dir.getFileHandle(name, {create:true}); const w = await fh.createWritable(); await w.write(blob); await w.close(); }
+      else if (out === 'zip') zipItems.push({name, data:new Uint8Array(await blob.arrayBuffer()), mtime:new Date()});
+      else { Moa.download(blob, name); await new Promise(r => setTimeout(r, 300)); }
+    }
+    if (zipItems.length){ await prog.set(1, 'ZIP 만드는 중'); const z = await MoaZip.writeZip(zipItems, {level:0}); prog.close(); if (zipItems.length === 1) await Moa.saveAs(new Blob([zipItems[0].data], {type:S.imgFmt}), zipItems[0].name); else await Moa.saveAs(z, base + '_이미지.zip'); } else prog.close();
+    toast(`${idx.length}쪽을 이미지로 변환했습니다`);
+  } catch(e){ prog.close(); if (e.message !== '취소했습니다') Moa.alert(e.message); }
+}
+async function extractText(){
+  if (!pages.length) return toast('먼저 PDF를 여세요');
+  setStatus('텍스트 추출 중…'); let txt = '';
+  for (let i = 0; i < pages.length; i++){ const t = await pageText(pages[i]); txt += `===== ${i + 1}쪽 =====\n${t.trim()}\n\n`; }
+  setStatus('');
+  const empty = txt.replace(/=+ \d+쪽 =+/g, '').trim().length === 0;
+  const ta = el('textarea',{style:{width:'min(720px,86vw)', height:'60vh', fontFamily:'inherit'}}); ta.value = txt;
+  Moa.modal({title:'텍스트 추출', body: el('div',null, empty ? el('div',{style:{color:'var(--warn)', marginBottom:'6px'}}, '글자 정보가 없습니다. 스캔한 이미지 PDF일 수 있습니다 (문자 인식(OCR)은 지원하지 않습니다).') : null, ta), width:'auto', buttons:[
+    {label:'복사', onClick:()=>{ navigator.clipboard.writeText(ta.value).then(()=>toast('복사했습니다')); return false; }},
+    {label:'TXT로 저장', onClick:()=>{ Moa.saveAs(new Blob(['﻿' + ta.value], {type:'text/plain'}), (fileName || '문서').replace(/\.pdf$/i, '') + '.txt'); return false; }}, {label:'닫기', primary:true}]});
+}
+
+/* ================= 워터마크 / 쪽 번호 ================= */
+async function watermarkDialog(){
+  if (!pages.length) return toast('먼저 PDF를 여세요');
+  const w = Object.assign({text:'대외비', size:12, color:'#888888', opacity:.25, angle:35, pos:'c', bold:true, tile:false}, deco.wm || {});
+  const pv = el('canvas',{width:240, height:340, style:{background:'#fff', borderRadius:'6px', border:'1px solid var(--line)'}});
+  const drawPv = async () => { const p = pages[curPage]; const [pw, ph] = await pageDims(p); const k = Math.min(240 / pw, 340 / ph); const base = await thumbFor(p, Math.round(pw * k)); pv.width = base.width; pv.height = base.height; const g = pv.getContext('2d'); g.drawImage(base, 0, 0); const save = deco.wm; deco.wm = w; drawOverlay(g, {objs:[]}, pv.width, pv.height, curPage + 1, pages.length); deco.wm = save; };
+  const f = (label, inp) => el('label',{class:'field'}, el('span',null,label), inp);
+  const upd = () => drawPv();
+  const ta = el('textarea',{style:{width:'100%', height:'52px'}, oninput:e => { w.text = e.target.value; upd(); }}); ta.value = w.text;
+  const body = el('div',{class:'row', style:{alignItems:'flex-start', gap:'16px', width:'min(680px,90vw)'}}, pv, el('div',{class:'grow'},
+    f('글자', ta),
+    el('div',{class:'row', style:{flexWrap:'wrap', marginBottom:'6px'}}, ...['대외비','CONFIDENTIAL','사본','DRAFT','초안','내부용','SAMPLE'].map(t => el('button',{class:'btn sm', onclick:()=>{ w.text = t; ta.value = t; upd(); }}, t))),
+    f('크기', el('input',{type:'range', min:3, max:40, value:w.size, oninput:e => { w.size = +e.target.value; upd(); }})),
+    f('투명도', el('input',{type:'range', min:5, max:100, value:w.opacity * 100, oninput:e => { w.opacity = e.target.value / 100; upd(); }})),
+    f('각도', el('input',{type:'range', min:-90, max:90, value:w.angle, oninput:e => { w.angle = +e.target.value; upd(); }})),
+    f('색', el('input',{type:'color', value:w.color, oninput:e => { w.color = e.target.value; upd(); }})),
+    f('위치', (() => { const s = el('select',{onchange:e => { w.pos = e.target.value; upd(); }}, ...[['c','가운데'],['t','위'],['b','아래'],['tl','왼쪽 위'],['tr','오른쪽 위'],['bl','왼쪽 아래'],['br','오른쪽 아래']].map(([v, n]) => el('option',{value:v}, n))); s.value = w.pos; return s; })()),
+    el('div',{class:'row'}, el('label',{class:'chk'}, el('input',{type:'checkbox', checked:w.bold, onchange:e => { w.bold = e.target.checked; upd(); }}), '굵게'), el('label',{class:'chk'}, el('input',{type:'checkbox', checked:w.tile, onchange:e => { w.tile = e.target.checked; upd(); }}), '바둑판처럼 반복'))));
+  upd();
+  const r = await Moa.modal({title:'워터마크 (모든 쪽)', body, width:'auto', buttons:[{label:'취소', value:null}, ...(deco.wm ? [{label:'워터마크 없애기', value:'off'}] : []), {label:'적용', primary:true, value:'on'}]});
+  if (!r) return; pushUndo(); deco.wm = r === 'on' && w.text.trim() ? w : null; markModified(); thumbCache.clear(); rebuild(true);
+  toast(deco.wm ? '워터마크를 넣었습니다. 저장하면 PDF에 새겨집니다.' : '워터마크를 없앴습니다');
+}
+async function pageNumDialog(){
+  if (!pages.length) return toast('먼저 PDF를 여세요');
+  const n = Object.assign({pos:'bc', fmt:'{n}', size:4, color:'#333333', start:1, from:1, mirror:false}, deco.pn || {});
+  const body = el('div',{style:{width:'min(460px,86vw)'}});
+  const f = (label, inp) => el('label',{class:'field'}, el('span',null,label), inp);
+  const fmtSel = el('select',null, ...[['{n}','1'],['- {n} -','- 1 -'],['{n} / {N}','1 / 10'],['{n}쪽','1쪽'],['Page {n}','Page 1'],['{n} / {N} 쪽','1 / 10 쪽']].map(([v, t]) => el('option',{value:v}, t))); fmtSel.value = n.fmt;
+  const posSel = el('select',null, ...[['bc','아래 가운데'],['br','아래 오른쪽'],['bl','아래 왼쪽'],['tc','위 가운데'],['tr','위 오른쪽'],['tl','위 왼쪽']].map(([v, t]) => el('option',{value:v}, t))); posSel.value = n.pos;
+  body.append(f('위치', posSel), f('모양', fmtSel), f('시작 번호', el('input',{type:'number', id:'pnS', value:n.start, min:0})), f('번호 붙일 첫 쪽', el('input',{type:'number', id:'pnF', value:n.from, min:1, max:pages.length})),
+    f('글자 크기', el('input',{type:'range', id:'pnZ', min:1, max:12, value:n.size})), f('색', el('input',{type:'color', id:'pnC', value:n.color})),
+    el('label',{class:'chk'}, el('input',{type:'checkbox', id:'pnM', checked:n.mirror}), '짝수 쪽은 좌우 반대 위치 (책 양면 인쇄)'));
+  const r = await Moa.modal({title:'쪽 번호 넣기', body, width:'auto', buttons:[{label:'취소', value:null}, ...(deco.pn ? [{label:'쪽 번호 없애기', value:'off'}] : []), {label:'적용', primary:true, value:'on'}]});
+  if (!r) return;
+  pushUndo();
+  deco.pn = r === 'on' ? {pos:posSel.value, fmt:fmtSel.value, start:+body.querySelector('#pnS').value || 1, from:Math.max(1, +body.querySelector('#pnF').value || 1), size:+body.querySelector('#pnZ').value, color:body.querySelector('#pnC').value, mirror:body.querySelector('#pnM').checked} : null;
+  markModified(); thumbCache.clear(); rebuild(true); toast(deco.pn ? '쪽 번호를 넣었습니다. 저장하면 PDF에 새겨집니다.' : '쪽 번호를 없앴습니다');
+}
+
+/* ================= 압축 / 정보 ================= */
+async function compressDialog(){
+  if (!pages.length) return toast('먼저 PDF를 여세요');
+  const orig = [...sources.values()].filter(s => s.kind === 'pdf').reduce((a, s) => a + s.bytes.length, 0);
+  const body = el('div',{style:{width:'min(500px,88vw)'}, html:`
+    <div class="dim" style="margin-bottom:8px">원본 크기 약 ${Moa.fmtBytes(orig)}</div>
+    <label class="chk" style="display:flex;margin:6px 0"><input type="radio" name="cm" value="std" checked> <span><b>기본 압축</b> — 구조를 정리해 다시 저장 (글자·화질 그대로)</span></label>
+    <label class="chk" style="display:flex;margin:6px 0"><input type="radio" name="cm" value="mid"> <span><b>강한 압축</b> — 쪽을 150dpi 이미지로 (스캔 문서에 효과적)</span></label>
+    <label class="chk" style="display:flex;margin:6px 0"><input type="radio" name="cm" value="max"> <span><b>최대 압축</b> — 쪽을 100dpi 이미지로 (화질 낮음)</span></label>
+    <div class="dim" style="font-size:11.5px;margin-top:8px">강한/최대 압축은 글자 선택·검색이 되지 않는 이미지 PDF가 됩니다.</div>`});
+  const ok = await Moa.modal({title:'PDF 압축', body, width:'auto', buttons:[{label:'취소', value:false}, {label:'압축', primary:true, value:true}]});
+  if (!ok) return;
+  const m = body.querySelector('input[name=cm]:checked').value;
+  const prog = progress('압축 중');
+  try {
+    const bytes = await buildPdf(pages, {onProgress: prog.set, rasterDpi: m === 'mid' ? 150 : m === 'max' ? 100 : 0, rasterQuality: m === 'max' ? .6 : .72});
+    prog.close();
+    const ratio = orig ? Math.round((1 - bytes.length / orig) * 100) : 0;
+    const r = await Moa.modal({title:'압축 결과', body:`<p style="margin-top:0">${Moa.fmtBytes(orig)} → <b>${Moa.fmtBytes(bytes.length)}</b> (${ratio >= 0 ? ratio + '% 줄어듦' : -ratio + '% 늘어남'})</p>${ratio < 3 ? '<p class="dim">이미 잘 압축된 문서입니다. 더 줄이려면 강한 압축을 써 보세요.</p>' : ''}`, buttons:[{label:'닫기', value:null}, {label:'저장', primary:true, value:true}]});
+    if (r) await Moa.saveAs(new Blob([bytes], {type:'application/pdf'}), (fileName || '문서').replace(/\.pdf$/i, '') + '_압축.pdf');
+  } catch(e){ prog.close(); if (e.message !== '취소했습니다') Moa.alert(e.message); }
+}
+async function propsDialog(){
+  if (!pages.length) return toast('먼저 PDF를 여세요');
+  const src = [...sources.values()].find(s => s.kind === 'pdf');
+  let info = {}, ver = '-';
+  if (src){ const md = await src.pdf.getMetadata().catch(() => null); info = md?.info || {}; ver = info.PDFFormatVersion || '-'; }
+  const [w, h] = await pageDims(pages[curPage]);
+  const fmtD = s => { const m = String(s || '').match(/D:(\d{4})(\d{2})(\d{2})(\d{2})?(\d{2})?/); return m ? `${m[1]}-${m[2]}-${m[3]} ${m[4] || '00'}:${m[5] || '00'}` : '-'; };
+  const paper = (() => { const mm = [w, h].map(x => Math.round(x * 25.4 / 72)); const known = {'210x297':'A4','297x420':'A3','148x210':'A5','216x279':'Letter','216x356':'Legal','182x257':'B5'}; const k = [Math.min(...mm), Math.max(...mm)].join('x'); return `${mm[0]} × ${mm[1]} mm` + (known[k] ? ` (${known[k]})` : ''); })();
+  const body = el('div',{style:{width:'min(520px,88vw)'}});
+  body.innerHTML = `<dl style="display:grid;grid-template-columns:110px 1fr;gap:5px 12px;margin:0 0 12px">${[['파일', fileName || '-'], ['쪽 수', pages.length + '쪽'], ['현재 쪽 크기', paper], ['PDF 버전', ver], ['만든 프로그램', info.Creator || '-'], ['PDF 변환기', info.Producer || '-'], ['만든 날짜', fmtD(info.CreationDate)], ['고친 날짜', fmtD(info.ModDate)], ['보호', [...sources.values()].some(s => s.encrypted) ? '암호화됨' : '없음'], ['파일 크기', src ? Moa.fmtBytes(src.bytes.length) : '-']].map(([k, v]) => `<dt class="dim">${k}</dt><dd style="margin:0">${esc(v)}</dd>`).join('')}</dl>
+    <fieldset><legend>저장할 때 넣을 정보</legend>
+    <label class="field"><span>제목</span><input type="text" id="mT"></label><label class="field"><span>작성자</span><input type="text" id="mA"></label>
+    <label class="field"><span>주제</span><input type="text" id="mS"></label><label class="field"><span>키워드</span><input type="text" id="mK" placeholder="쉼표로 구분"></label>
+    <label class="field"><span>파일 이름</span><input type="text" id="mF"></label></fieldset>`;
+  body.querySelector('#mT').value = meta.title; body.querySelector('#mA').value = meta.author; body.querySelector('#mS').value = meta.subject; body.querySelector('#mK').value = Array.isArray(meta.keywords) ? meta.keywords.join(', ') : meta.keywords; body.querySelector('#mF').value = fileName;
+  const r = await Moa.modal({title:'문서 정보', body, width:'auto', buttons:[{label:'닫기', value:null}, {label:'정보 바꾸기', primary:true, value:true}]});
+  if (r){ meta = {title:body.querySelector('#mT').value, author:body.querySelector('#mA').value, subject:body.querySelector('#mS').value, keywords:body.querySelector('#mK').value}; const nf = body.querySelector('#mF').value.trim(); if (nf) fileName = /\.pdf$/i.test(nf) ? nf : nf + '.pdf'; markModified(); }
+}
+function help(){
+  Moa.modal({title:'HANAI PDF 도움말', width:620, body:`<p style="margin-top:0"><b>보기:</b> PDF를 열면 왼쪽에 썸네일, 가운데에 본문이 나옵니다. 글자를 드래그해 복사할 수 있고 Ctrl+F로 본문을 찾습니다. 암호가 걸린 PDF는 암호를 물어봅니다.</p>
+  <p><b>페이지 편집:</b> 썸네일이나 '페이지 정리' 화면에서 끌어서 순서를 바꾸고, 회전·삭제·복제·추출·빈 쪽 삽입을 할 수 있습니다. 다른 PDF나 이미지를 끌어다 놓으면 쪽으로 들어갑니다.</p>
+  <p><b>주석·서명:</b> 펜·형광펜·글상자·도형·흰색 지우기·서명·도장을 쪽 위에 넣을 수 있습니다. 워터마크와 쪽 번호는 모든 쪽에 한 번에 들어갑니다. 저장하면 PDF에 그대로 새겨집니다.</p>
+  <p><b>변환:</b> 이미지→PDF, PDF→이미지(JPG/PNG), 텍스트 추출, 합치기, 나누기, 압축을 지원합니다. 모든 처리는 내 컴퓨터 안에서만 이루어지며 파일이 인터넷으로 전송되지 않습니다.</p>
+  <p class="dim">한계: PDF에 새 암호를 거는 기능과 문자 인식(OCR), 원래 글자를 직접 고치는 기능은 없습니다. (흰색 지우기 + 글상자로 바꿔 쓸 수 있습니다)</p>` +
+  Moa.shortcutTable([['Ctrl+O','열기'],['Ctrl+S','저장'],['Ctrl+P','인쇄'],['Ctrl+F','찾기 (Enter 다음, Shift+Enter 이전)'],['PageUp / PageDown','이전 / 다음 쪽'],['Home / End','처음 / 마지막 쪽'],['Ctrl + 휠, Ctrl+± ','확대 / 축소'],['Ctrl+R','선택한 쪽 회전'],['Delete','선택한 쪽(또는 주석) 삭제'],['Ctrl+Z / Ctrl+Y','실행 취소 / 다시 실행'],['Esc','도구 해제']])});
+}
+
+/* ================= 단축키 ================= */
+document.addEventListener('keydown', e => {
+  if (document.querySelector('.moa-modal-bg')) return;
+  const k = e.key, c = e.ctrlKey || e.metaKey;
+  if (c && (k === 'o' || k === 'O')){ e.preventDefault(); openPdf(); return; }
+  if (c && (k === 's' || k === 'S')){ e.preventDefault(); saveDoc(); return; }
+  if (c && (k === 'p' || k === 'P')){ e.preventDefault(); printDoc(); return; }
+  if (c && (k === 'f' || k === 'F')){ e.preventDefault(); $('#find').focus(); $('#find').select(); return; }
+  if (e.target.matches('input,textarea,select')) return;
+  if (c && (k === 'z' || k === 'Z')){ e.preventDefault(); e.shiftKey ? redo() : undo(); }
+  else if (c && (k === 'y' || k === 'Y')){ e.preventDefault(); redo(); }
+  else if (c && (k === 'r' || k === 'R')){ e.preventDefault(); rotateSel(e.shiftKey ? -90 : 90); }
+  else if (c && (k === '=' || k === '+')){ e.preventDefault(); zoomStep(1); }
+  else if (c && k === '-'){ e.preventDefault(); zoomStep(-1); }
+  else if (c && (k === 'a' || k === 'A')){ e.preventDefault(); pages.forEach(p => selected.add(p.id)); refreshSel(); }
+  else if (k === 'PageDown' || (k === 'ArrowRight' && mode === 'view' && S.zoom === 'page')){ e.preventDefault(); goPage(curPage + 1); }
+  else if (k === 'PageUp' || (k === 'ArrowLeft' && mode === 'view' && S.zoom === 'page')){ e.preventDefault(); goPage(curPage - 1); }
+  else if (k === 'Home' && !c){ e.preventDefault(); goPage(0); }
+  else if (k === 'End' && !c){ e.preventDefault(); goPage(pages.length - 1); }
+  else if (k === 'Delete' || k === 'Backspace'){ if (selObj){ pushUndo(); pages[selObj.page].objs.splice(pages[selObj.page].objs.indexOf(selObj.o), 1); selObj = null; markModified(); refreshAnno(); renderSide(); } else if (k === 'Delete') deleteSel(); }
+  else if (k === 'Escape'){ if (tool) setTool(null); selected.clear(); refreshSel(); }
+  else if (k === 'F1'){ e.preventDefault(); help(); }
+});
+window.addEventListener('beforeunload', e => { if (modified){ e.preventDefault(); e.returnValue = ''; } });
+
+updateTitle();
+window.MoaPdfApp = {addFiles, openPdf, get pages(){ return pages; }, buildPdf, setTool, rotateSel, doFind, setMode, get deco(){ return deco; }, set deco(v){ deco = v; }, rebuild, useImage, splitDialog};
+})();
+</script>
+<script>/* 웹판: 처음 화면 · 기본판 ↔ Plus판 전환 */
+(function(){
+  var plus = /\/plus\//.test(location.pathname), f = location.pathname.split('/').pop() || 'index.html';
+  var t = document.querySelector('.moa-title'); if (!t) return;
+  function b(txt, href, title, ask){ var a = document.createElement('a'); a.className = 'btn sm'; a.textContent = txt; a.href = href; a.title = title; a.style.marginLeft = '6px'; a.style.textDecoration = 'none';
+    if (ask) a.onclick = function(e){ if (!confirm('지금 열려 있는 파일과 작업은 닫힙니다.\n' + (plus ? '기본판' : 'Plus판') + '으로 바꿀까요?')) e.preventDefault(); };
+    t.appendChild(a); }
+  b('처음 화면', './', 'HANAI Tools 처음 화면', true);
+  b(plus ? '기본판으로' : 'Plus판으로', (plus ? '../' : 'plus/') + f, plus ? '같은 프로그램의 기본판을 엽니다' : '같은 프로그램의 Plus판을 엽니다 (7Z·음정·MP3·글자 추출·AI 배경 지우기 등)', true);
+})();
+</script>
+</body>
+</html>

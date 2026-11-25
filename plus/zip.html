@@ -1,0 +1,680 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 32 32%22%3E%3Crect width=%2232%22 height=%2232%22 rx=%228%22 fill=%22%237c8cff%22/%3E%3Ctext x=%2216%22 y=%2223%22 font-size=%2219%22 font-family=%22Arial%22 font-weight=%22700%22 text-anchor=%22middle%22 fill=%22white%22%3EH%3C/text%3E%3C/svg%3E">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>HANAI Zip - HANAI Tools 압축 프로그램</title>
+<link rel="stylesheet" href="../lib/moa.css">
+<style>
+.addr{display:flex;align-items:center;gap:6px;padding:6px 8px;background:var(--panel);border-bottom:1px solid var(--line);flex:none}
+.crumbs{flex:1;display:flex;align-items:center;gap:2px;background:var(--bg2);border:1px solid var(--line);border-radius:6px;padding:3px 6px;overflow:hidden;white-space:nowrap;min-width:0}
+.crumbs button{border:0;background:none;padding:2px 6px;border-radius:4px;color:var(--text)}
+.crumbs button:hover{background:var(--hover)}
+.crumbs .sep{color:var(--dim)}
+.addr input[type=search]{width:220px}
+.body{flex:1;display:grid;grid-template-columns:230px 1fr;min-height:0}
+@media (max-width:760px){.body{grid-template-columns:1fr}.tree{display:none}}
+.tree{border-right:1px solid var(--line);overflow:auto;padding:6px 0;background:var(--panel)}
+.tree .node{display:flex;align-items:center;gap:4px;padding:3px 8px;cursor:pointer;white-space:nowrap;border-radius:5px;margin:0 4px}
+.tree .node:hover{background:var(--hover)}
+.tree .node.cur{background:color-mix(in srgb,var(--accent) 22%,transparent);font-weight:700}
+.tree .tw{width:14px;text-align:center;color:var(--dim);font-size:10px;flex:none}
+.listwrap{overflow:auto;position:relative;min-height:0}
+#table{table-layout:fixed}
+.nmw{display:flex;align-items:center;gap:8px;min-width:0}
+.nmw span.t{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.fi{width:18px;height:18px;border-radius:4px;display:inline-grid;place-items:center;font-size:8px;font-weight:800;color:#fff;flex:none;letter-spacing:-.3px}
+.grid-list tr{cursor:default}
+.lock{color:var(--warn);font-size:11px}
+.preview-img{max-width:100%;max-height:70vh;display:block;margin:auto}
+.hex{font:12px/1.5 Consolas,monospace;white-space:pre;overflow:auto;max-height:60vh;background:var(--bg2);padding:10px;border-radius:8px}
+.textpre{font:13px/1.55 Consolas,"Malgun Gothic",monospace;white-space:pre-wrap;word-break:break-all;max-height:65vh;overflow:auto;background:var(--bg2);padding:12px;border-radius:8px;margin:0}
+.welcome{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;height:100%;color:var(--dim);text-align:center;padding:30px}
+.welcome .big{display:flex;gap:14px;flex-wrap:wrap;justify-content:center}
+.welcome .card{width:190px;padding:18px;border:1px solid var(--line);border-radius:14px;background:var(--panel);cursor:pointer;color:var(--text);text-align:center}
+.welcome .card:hover{border-color:var(--accent)}
+.welcome .card svg{width:42px;height:42px;fill:none;stroke:var(--accent);stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round}
+.welcome .card b{display:block;margin:8px 0 4px;font-size:14px}
+.welcome .card span{font-size:12px;color:var(--dim)}
+.loglist{max-height:240px;overflow:auto;font-size:12px;background:var(--bg2);border-radius:8px;padding:8px;border:1px solid var(--line)}
+.loglist .bad{color:var(--danger)}.loglist .good{color:var(--ok)}
+</style>
+</head>
+<body>
+<div class="moa-app">
+  <div class="moa-title">
+    <div class="moa-logo">Z</div>
+    <h1 id="appTitle">HANAI Zip</h1><span class="sub">HANAI Tools 압축 프로그램</span>
+    <span class="grow"></span>
+    <span class="sub" id="arcBadge"></span>
+  </div>
+  <div class="moa-toolbar" id="toolbar"></div>
+  <div class="addr">
+    <button class="ibtn" id="bUp" title="상위 폴더 (Backspace)"></button>
+    <div class="crumbs" id="crumbs"></div>
+    <input type="search" id="search" placeholder="현재 압축 파일에서 찾기">
+  </div>
+  <div class="body">
+    <div class="tree" id="tree"></div>
+    <div class="listwrap" id="listWrap">
+      <table class="grid-list" id="table">
+        <colgroup><col><col style="width:96px"><col style="width:96px"><col style="width:64px"><col style="width:110px"><col style="width:140px"><col style="width:84px"></colgroup>
+        <thead><tr><th data-k="name">이름</th><th data-k="usize" class="num">원래 크기</th><th data-k="csize" class="num">압축 크기</th><th data-k="ratio" class="num">압축률</th><th data-k="type">종류</th><th data-k="mtime">수정한 날짜</th><th data-k="crc">CRC</th></tr></thead>
+        <tbody id="rows"></tbody>
+      </table>
+      <div class="welcome" id="welcome">
+        <div style="font-size:18px;color:var(--text);font-weight:700">무엇을 할까요?</div>
+        <div class="big">
+          <div class="card" id="wNew"><svg viewBox="0 0 24 24">${''}</svg><b>새로 압축하기</b><span>파일·폴더를 ZIP, TAR, TGZ로<br>압축합니다 (암호 설정 가능)</span></div>
+          <div class="card" id="wOpen"><svg viewBox="0 0 24 24"></svg><b>압축 파일 열기</b><span>ZIP · 7Z · TAR · TGZ · GZ 내용을<br>보고 원하는 파일만 풉니다</span></div>
+        </div>
+        <div>압축 파일이나 압축할 파일·폴더를 이 창에 끌어다 놓아도 됩니다.</div>
+      </div>
+    </div>
+  </div>
+  <div class="moa-status"><span class="grow" id="status">준비</span><span id="stEnc"></span><span id="stSel"></span><span id="stTotal"></span></div>
+</div>
+<script src="../lib/pako.min.js"></script>
+<script src="../lib/moa-common.js"></script>
+<script src="../lib/moa-zip.js"></script>
+<script src="../lib/moa-7z.js"></script>
+<script>
+(() => {
+'use strict';
+const {$, el, esc, toast, icon} = Moa;
+Moa.applyTheme('zip');
+const S = Object.assign({level:6, format:'zip', enc:'aes', nameEnc:'utf8', mkFolder:true, sortK:'name', sortD:1}, Moa.store.get('moazip.settings', {}));
+const saveS = () => Moa.store.set('moazip.settings', S);
+
+/* 상태 */
+let arc = null;        // 열린 원본 압축 파일 (MoaZip 결과)
+let items = [];        // 작업 목록 {path, isDir, usize, csize, mtime, crc, encrypted, method, src:{kind:'arc', e}|{kind:'file', file}}
+let arcName = '';      // 현재 압축 파일 이름
+let arcFormat = 'zip';
+let cwd = '';          // 현재 폴더 ('' 또는 'a/b/')
+let selected = new Set(), lastSel = null;
+let modified = false, knownPassword = null, savePassword = null, saveEnc = 'aes', comment = '';
+let filter = '';
+
+/* 툴바 */
+Moa.toolbar($('#toolbar'), [
+  {icon:'zip', label:'새로 압축', title:'새 압축 파일 만들기 (Ctrl+N)', onClick:()=>newArchive()},
+  {icon:'open', label:'열기', title:'압축 파일 열기 (Ctrl+O)', onClick:()=>openArchive()},
+  {icon:'unzip', label:'압축 풀기', title:'선택한 파일(없으면 전체) 풀기 (Ctrl+E)', onClick:()=>extractDialog()},
+  {icon:'folder', label:'알아서 풀기', title:'압축 파일 이름의 폴더를 만들어 바로 풀기', onClick:()=>smartExtract()},
+  '|',
+  {icon:'plus', label:'파일 추가', onClick:()=>addPick(false)},
+  {icon:'folder', label:'폴더 추가', onClick:()=>addPick(true)},
+  {icon:'plus', label:'새 폴더', onClick:()=>newFolder()},
+  {icon:'edit', label:'이름 바꾸기', title:'이름 바꾸기 (F2)', onClick:()=>renameSel()},
+  {icon:'trash', label:'삭제', title:'선택 항목 삭제 (Delete)', onClick:()=>deleteSel()},
+  '|',
+  {id:'tbSave', icon:'save', label:'저장', title:'변경 내용을 압축 파일로 저장 (Ctrl+S)', onClick:()=>saveArchive()},
+  {icon:'convert', label:'형식 변환', title:'ZIP/TAR/TGZ 형식으로 바꿔 저장', onClick:()=>saveArchive(true)},
+  {icon:'lock', label:'암호 설정', onClick:()=>passwordDialog()},
+  '|',
+  {icon:'eye', label:'미리 보기', title:'선택한 파일 보기 (F3)', onClick:()=>previewSel()},
+  {icon:'test', label:'압축 테스트', title:'모든 파일의 무결성 검사', onClick:()=>testArchive()},
+  {icon:'comment', label:'설명', title:'압축 파일 설명(주석)', onClick:()=>commentDialog()},
+  {icon:'info', label:'정보', onClick:()=>infoDialog()},
+  '|',
+  {icon:'palette', label:'스킨', onClick:e=>Moa.themeMenu('zip', e.clientX, e.clientY+10)},
+  {icon:'help', label:'도움말', title:'도움말 (F1)', onClick:()=>help()},
+]);
+$('#bUp').innerHTML = icon('up');
+$('#wNew svg').innerHTML = Moa.icons.zip; $('#wOpen svg').innerHTML = Moa.icons.unzip;
+$('#wNew').onclick = () => newArchive(); $('#wOpen').onclick = () => openArchive();
+
+/* ============ 유틸 ============ */
+const ext = n => { const m = n.match(/\.([^./]+)$/); return m ? m[1].toLowerCase() : ''; };
+const TYPES = {
+  image:['jpg','jpeg','png','gif','bmp','webp','svg','ico','tif','tiff','heic','avif'], audio:['mp3','wav','flac','m4a','ogg','opus','aac','wma'], video:['mp4','mkv','avi','mov','webm','wmv','m4v'],
+  doc:['doc','docx','hwp','hwpx','odt','rtf','pdf','ppt','pptx','xls','xlsx','csv'], text:['txt','md','log','ini','cfg','json','xml','html','htm','css','js','ts','py','java','c','cpp','h','cs','sql','yml','yaml','bat','sh','lrc','srt','smi','csv','tsv'],
+  archive:['zip','rar','7z','alz','egg','tar','gz','tgz','bz2','xz'], exe:['exe','msi','dll','bat','cmd','apk','jar']
+};
+const TYPE_NAME = {image:'그림', audio:'오디오', video:'동영상', doc:'문서', text:'텍스트', archive:'압축 파일', exe:'실행 파일'};
+const TYPE_COLOR = {image:'#e0679b', audio:'#9b6be0', video:'#e08a3c', doc:'#3c8ee0', text:'#5aa36b', archive:'#c9a227', exe:'#d9534f', folder:'#e6b33a', other:'#7d8597'};
+function kindOf(n){ const x = ext(n); for (const k in TYPES) if (TYPES[k].includes(x)) return k; return 'other'; }
+function typeLabel(it){ if (it.isDir) return '파일 폴더'; const k = kindOf(it.path); const x = ext(it.path).toUpperCase(); return k === 'other' ? (x ? x + ' 파일' : '파일') : `${TYPE_NAME[k]} (${x})`; }
+function fileIcon(it){ if (it.isDir) return `<span class="fi" style="background:${TYPE_COLOR.folder}">▬</span>`; const k = kindOf(it.path); return `<span class="fi" style="background:${TYPE_COLOR[k]}">${esc(ext(it.path).slice(0,3).toUpperCase()) || '·'}</span>`; }
+const baseOf = p => p.replace(/\/$/, '').split('/').pop();
+const parentOf = p => { const s = p.replace(/\/$/, ''); const i = s.lastIndexOf('/'); return i < 0 ? '' : s.slice(0, i + 1); };
+const sleep0 = () => new Promise(r => setTimeout(r, 0));
+function setStatus(s){ $('#status').textContent = s; }
+function setTitle(){
+  $('#appTitle').textContent = arcName ? (modified ? '* ' : '') + arcName : 'HANAI Zip';
+  document.title = (arcName ? (modified ? '* ' : '') + arcName + ' - ' : '') + 'HANAI Zip';
+  $('#arcBadge').textContent = arcName ? [arcFormat.toUpperCase(), savePassword ? '암호(' + (saveEnc === 'aes' ? 'AES-256' : 'ZipCrypto') + ')' : (items.some(i => i.encrypted) ? '암호 걸린 파일 있음' : '')].filter(Boolean).join(' · ') : '';
+  $('#tbSave').disabled = !arcName;
+}
+
+/* 폴더 목록이 빠진 압축 파일도 트리를 만들 수 있게 가상 폴더 보충 */
+function normalizeDirs(){
+  const have = new Set(items.filter(i => i.isDir).map(i => i.path));
+  const add = [];
+  for (const it of items){ let p = parentOf(it.path); while (p && !have.has(p)){ have.add(p); add.push({path:p, isDir:true, usize:0, csize:0, mtime:it.mtime, virtual:true}); p = parentOf(p); } }
+  items.push(...add);
+}
+const childrenOf = dir => items.filter(i => parentOf(i.path) === dir && i.path !== dir);
+
+/* ============ 렌더링 ============ */
+function render(){
+  const has = !!arcName;
+  $('#welcome').classList.toggle('hidden', has); $('#table').classList.toggle('hidden', !has);
+  setTitle(); renderCrumbs(); renderTree(); renderRows();
+}
+function renderCrumbs(){
+  const c = $('#crumbs'); c.innerHTML = '';
+  c.append(el('button', {onclick:()=>cd('')}, '📦 ' + (arcName || 'HANAI Zip')));
+  let acc = '';
+  cwd.split('/').filter(Boolean).forEach(part => { acc += part + '/'; const p = acc; c.append(el('span',{class:'sep'}, '›'), el('button', {onclick:()=>cd(p)}, part)); });
+}
+const expanded = new Set(['']);
+function renderTree(){
+  const t = $('#tree'); t.innerHTML = '';
+  if (!arcName) return;
+  const walk = (dir, depth) => {
+    const kids = childrenOf(dir).filter(i => i.isDir).sort((a,b) => a.path.localeCompare(b.path, 'ko', {numeric:true}));
+    for (const k of kids){
+      const hasKids = childrenOf(k.path).some(i => i.isDir); const open = expanded.has(k.path);
+      const n = el('div', {class:'node' + (k.path === cwd ? ' cur' : ''), style:{paddingLeft:(8 + depth*14) + 'px'}},
+        el('span',{class:'tw', onclick:e => { e.stopPropagation(); open ? expanded.delete(k.path) : expanded.add(k.path); renderTree(); }}, hasKids ? (open ? '▼' : '▶') : ''),
+        el('span',{html:fileIcon(k)}), el('span',null, baseOf(k.path)));
+      n.onclick = () => { expanded.add(k.path); cd(k.path); };
+      t.append(n);
+      if (open) walk(k.path, depth + 1);
+    }
+  };
+  const root = el('div',{class:'node' + (cwd === '' ? ' cur' : '')}, el('span',{class:'tw'}, '▼'), el('span',null,'📦 ' + arcName));
+  root.onclick = () => cd(''); t.append(root);
+  walk('', 1);
+}
+function visible(){
+  let list = filter ? items.filter(i => baseOf(i.path).toLowerCase().includes(filter.toLowerCase())) : childrenOf(cwd);
+  const k = S.sortK, d = S.sortD;
+  const val = i => k === 'name' ? baseOf(i.path) : k === 'type' ? typeLabel(i) : k === 'ratio' ? (i.usize ? 1 - i.csize / i.usize : 0) : k === 'mtime' ? +i.mtime : k === 'crc' ? (i.crc || 0) : i[k] || 0;
+  return list.slice().sort((a, b) => (b.isDir - a.isDir) || ((x, y) => typeof x === 'number' ? x - y : String(x).localeCompare(String(y), 'ko', {numeric:true}))(val(a), val(b)) * d);
+}
+function folderStats(dir){ let u = 0, c = 0, n = 0; for (const i of items) if (!i.isDir && i.path.startsWith(dir)){ u += i.usize; c += i.csize || 0; n++; } return {u, c, n}; }
+function renderRows(){
+  const body = $('#rows'); body.innerHTML = '';
+  if (!arcName) return;
+  const frag = document.createDocumentFragment();
+  if (cwd && !filter){ const tr = el('tr', {}, el('td',{colspan:7, html:`<div class="nmw"><span class="fi" style="background:var(--line)">↑</span><span class="t">..</span></div>`})); tr.dataset.up = '1'; frag.append(tr); }
+  for (const it of visible()){
+    let u = it.usize, c = it.csize;
+    if (it.isDir){ const st = folderStats(it.path); u = st.u; c = st.c; }
+    const ratio = u ? Math.max(0, Math.round((1 - c / u) * 100)) + '%' : '-';
+    const tr = el('tr', {class: selected.has(it.path) ? 'sel' : '', title: it.path});
+    tr.dataset.path = it.path;
+    tr.innerHTML = `<td><div class="nmw">${fileIcon(it)}<span class="t">${esc(filter ? it.path : baseOf(it.path))}</span>${it.encrypted ? '<span class="lock" title="암호 걸림">🔒</span>' : ''}${it.src && it.src.kind === 'file' ? '<span class="lock" style="color:var(--ok)" title="새로 추가됨 (저장 필요)">＋</span>' : ''}</div></td>
+      <td class="num">${it.isDir ? '' : Moa.fmtBytes(u)}</td><td class="num">${it.isDir || it.src?.kind === 'file' ? '' : Moa.fmtBytes(c)}</td><td class="num">${it.isDir || it.src?.kind === 'file' ? '' : ratio}</td>
+      <td>${esc(typeLabel(it))}</td><td>${Moa.fmtDate(it.mtime)}</td><td style="font-family:Consolas,monospace;font-size:11px">${it.crc != null ? it.crc.toString(16).toUpperCase().padStart(8,'0') : ''}</td>`;
+    frag.append(tr);
+  }
+  body.append(frag);
+  const files = items.filter(i => !i.isDir);
+  const tu = files.reduce((a,i) => a + i.usize, 0), tc = files.reduce((a,i) => a + (i.csize||0), 0);
+  $('#stTotal').textContent = `파일 ${files.length}개 · 원래 ${Moa.fmtBytes(tu)} · 압축 ${Moa.fmtBytes(arc ? arc.file.size : tc)}${tu && arc ? ' (' + Math.max(0, Math.round((1 - arc.file.size / tu) * 100)) + '% 절약)' : ''}`;
+  updateSelStatus();
+  document.querySelectorAll('#table th').forEach(th => th.textContent = th.textContent.replace(/ [▲▼]$/, '') + (th.dataset.k === S.sortK ? (S.sortD > 0 ? ' ▲' : ' ▼') : ''));
+}
+function updateSelStatus(){
+  const sel = items.filter(i => selected.has(i.path));
+  $('#stSel').textContent = sel.length ? `선택 ${sel.length}개 (${Moa.fmtBytes(sel.reduce((a,i) => a + (i.isDir ? folderStats(i.path).u : i.usize), 0))})` : '';
+  $('#rows').querySelectorAll('tr').forEach(r => r.classList.toggle('sel', selected.has(r.dataset.path)));
+}
+function cd(p){ cwd = p; filter = ''; $('#search').value = ''; selected.clear(); let q = p; while (q){ expanded.add(q); q = parentOf(q); } render(); }
+$('#bUp').onclick = () => { if (cwd) cd(parentOf(cwd)); };
+$('#search').oninput = e => { filter = e.target.value.trim(); renderRows(); };
+$('#table thead').onclick = e => { const k = e.target.dataset.k; if (!k) return; S.sortD = S.sortK === k ? -S.sortD : 1; S.sortK = k; saveS(); renderRows(); };
+$('#rows').addEventListener('click', e => {
+  const tr = e.target.closest('tr'); if (!tr || tr.dataset.up) return;
+  const p = tr.dataset.path, vis = visible().map(i => i.path);
+  if (e.shiftKey && lastSel){ const a = vis.indexOf(lastSel), b = vis.indexOf(p); if (!e.ctrlKey) selected.clear(); for (let i = Math.min(a,b); i <= Math.max(a,b); i++) selected.add(vis[i]); }
+  else if (e.ctrlKey || e.metaKey){ selected.has(p) ? selected.delete(p) : selected.add(p); lastSel = p; }
+  else { selected.clear(); selected.add(p); lastSel = p; }
+  updateSelStatus();
+});
+$('#rows').addEventListener('dblclick', e => {
+  const tr = e.target.closest('tr'); if (!tr) return;
+  if (tr.dataset.up){ cd(parentOf(cwd)); return; }
+  const it = items.find(i => i.path === tr.dataset.path); if (!it) return;
+  if (it.isDir) cd(it.path); else preview(it);
+});
+$('#rows').addEventListener('contextmenu', e => {
+  const tr = e.target.closest('tr'); if (!tr || tr.dataset.up) return; e.preventDefault();
+  if (!selected.has(tr.dataset.path)){ selected.clear(); selected.add(tr.dataset.path); lastSel = tr.dataset.path; updateSelStatus(); }
+  const it = items.find(i => i.path === tr.dataset.path);
+  Moa.menu(e.clientX, e.clientY, [
+    {label: it.isDir ? '열기' : '미리 보기', hint: it.isDir ? 'Enter' : 'F3', onClick:()=> it.isDir ? cd(it.path) : preview(it)},
+    {label:'선택 항목 풀기…', hint:'Ctrl+E', onClick:()=>extractDialog()},
+    {label:'파일로 저장 (다운로드)', disabled: it.isDir, onClick:()=>downloadItem(it)},
+    '-', {label:'이름 바꾸기', hint:'F2', onClick:renameSel}, {label:'삭제', hint:'Del', onClick:deleteSel},
+    '-', {label:'속성', onClick:()=>props(it)}]);
+});
+$('#listWrap').addEventListener('click', e => { if (e.target === $('#listWrap')){ selected.clear(); updateSelStatus(); } });
+
+/* ============ 열기 ============ */
+async function openArchive(file){
+  if (!file){ const [f] = await Moa.pickFiles({accept:'.zip,.7z,.tar,.tgz,.gz,.tar.gz,.jar,.apk,.docx,.xlsx,.pptx,.hwpx,.epub,.exe', multiple:false}); if (!f) return; file = f; }
+  if (modified && !(await Moa.confirm('저장하지 않은 변경 내용이 있습니다. 버리고 새 파일을 열까요?'))) return;
+  setStatus('여는 중: ' + file.name + ' …');
+  try {
+    const a = await MoaZip.open(file, S.nameEncRead || 'auto');
+    let headerPw = null;
+    if (a.headerEncrypted){
+      // 파일 이름까지 암호로 숨긴 7z
+      for (let tries = 0;; tries++){
+        const pw = await askPassword(file.name + ' (파일 목록도 암호화됨)', tries > 0); if (pw == null){ setStatus('취소했습니다'); return; }
+        try { await Moa7z.unlockHeader(a, pw); headerPw = pw; break; } catch(err){ if (!(err instanceof MoaZip.PasswordError)) throw err; }
+      }
+    }
+    arc = a; arcName = file.name; arcFormat = a.type === 'tgz' ? 'tgz' : a.type; comment = a.comment || '';
+    items = a.entries.map(e => ({path: e.name.replace(/^\.?\//, ''), isDir: e.isDir, usize: e.usize, csize: e.csize, mtime: e.mtime, crc: e.crc, encrypted: e.encrypted, method: e.realMethod, src:{kind:'arc', e}}));
+    items = items.filter(i => i.path);
+    // 중복 경로 제거
+    const seen = new Set(); items = items.filter(i => { if (seen.has(i.path)) return false; seen.add(i.path); return true; });
+    normalizeDirs();
+    knownPassword = headerPw; savePassword = null; modified = false; selected.clear(); cwd = '';
+    // 최상위에 폴더 하나만 있으면 펼쳐 둠
+    render();
+    if (a.type === '7z') $('#stEnc').textContent = '7Z' + (a.solid ? ' (솔리드)' : '');
+    else $('#stEnc').textContent = a.type === 'zip' ? `파일 이름: ${({auto:'자동', 'utf-8':'UTF-8', 'euc-kr':'한국어(CP949)', 'shift_jis':'일본어', 'gbk':'중국어 간체', 'big5':'중국어 번체'})[a.nameEnc] || a.nameEnc}` : '';
+    setStatus(`${file.name} 열기 완료 · ${a.entries.filter(e => !e.isDir).length}개 파일` + (a.multiDisk ? ' · 분할 압축의 일부입니다' : '') + (a.comment ? ' · 설명 있음' : ''));
+    if (a.comment && a.comment.trim()) toast('이 압축 파일에는 설명이 있습니다 (도구 모음의 \'설명\')', 2600);
+  } catch(err){ console.error(err); setStatus('열기 실패'); Moa.alert(err.message || String(err), '압축 파일을 열 수 없습니다'); }
+}
+$('#stEnc').onclick = e => {
+  if (!arc || arc.type !== 'zip') return;
+  Moa.menu(e.clientX, e.clientY - 200, [['auto','자동 판별'],['utf-8','UTF-8'],['euc-kr','한국어 (CP949/EUC-KR)'],['shift_jis','일본어 (Shift-JIS)'],['gbk','중국어 간체 (GBK)'],['big5','중국어 번체 (Big5)'],['ibm866','러시아어 (CP866)'],['windows-1252','서유럽 (CP1252)']].map(([k, v]) => ({label:(arc.nameEnc === k ? '● ' : '') + v, onClick:()=>{
+    MoaZip.reDecodeNames(arc, k); S.nameEncRead = k; saveS();
+    items = items.filter(i => !i.virtual); items.forEach(i => { if (i.src?.kind === 'arc') i.path = i.src.e.name; }); normalizeDirs(); cwd = ''; render();
+    $('#stEnc').textContent = '파일 이름: ' + v; toast('파일 이름 인코딩: ' + v); }})));
+};
+$('#stEnc').title = '클릭: 파일 이름 글자 깨짐 해결 (인코딩 선택)'; $('#stEnc').style.cursor = 'pointer';
+
+/* ============ 파일 데이터 얻기 (암호 처리 포함) ============ */
+async function askPassword(name, again){
+  return Moa.prompt(again ? `암호가 틀렸습니다. 다시 입력하세요 - ${name}` : `암호를 입력하세요 - ${name}`, '', {type:'password'});
+}
+async function getData(it){
+  if (it.src.kind === 'file') return new Uint8Array(await it.src.file.arrayBuffer());
+  if (it.src.kind === 'data') return it.src.data;
+  const e = it.src.e;
+  let pw = knownPassword, tries = 0;
+  for (;;){
+    if (e.encrypted && pw == null){ pw = await askPassword(baseOf(it.path), tries > 0); if (pw == null) throw new Error('취소했습니다'); }
+    try { const d = await MoaZip.extract(arc, e, pw); if (e.encrypted) knownPassword = pw; return d; }
+    catch(err){ if (err instanceof MoaZip.PasswordError){ pw = null; tries++; continue; } throw err; }
+  }
+}
+
+/* ============ 미리 보기 ============ */
+function previewSel(){ const it = items.find(i => selected.has(i.path) && !i.isDir); if (it) preview(it); else toast('미리 볼 파일을 선택하세요'); }
+async function preview(it){
+  setStatus('여는 중: ' + it.path);
+  let data; try { data = await getData(it); } catch(err){ setStatus(''); if (err.message !== '취소했습니다') Moa.alert(err.message, '열 수 없습니다'); return; }
+  setStatus('');
+  const k = kindOf(it.path), x = ext(it.path);
+  const mime = {jpg:'image/jpeg',jpeg:'image/jpeg',png:'image/png',gif:'image/gif',webp:'image/webp',svg:'image/svg+xml',bmp:'image/bmp',ico:'image/x-icon',avif:'image/avif',mp3:'audio/mpeg',wav:'audio/wav',ogg:'audio/ogg',m4a:'audio/mp4',flac:'audio/flac',opus:'audio/ogg',mp4:'video/mp4',webm:'video/webm',m4v:'video/mp4',mov:'video/quicktime',pdf:'application/pdf'}[x] || 'application/octet-stream';
+  const blob = new Blob([data], {type:mime}); const url = URL.createObjectURL(blob);
+  let body;
+  if (k === 'image' && x !== 'tif' && x !== 'tiff' && x !== 'heic') body = el('img', {class:'preview-img', src:url});
+  else if (k === 'audio') body = el('audio', {src:url, controls:true, autoplay:true, style:{width:'100%'}});
+  else if (k === 'video') body = el('video', {src:url, controls:true, autoplay:true, style:{maxWidth:'100%', maxHeight:'70vh'}});
+  else if (x === 'pdf') body = el('iframe', {src:url, style:{width:'min(900px,85vw)', height:'75vh', border:0, background:'#fff'}});
+  else if (k === 'text' || looksText(data)) body = el('pre', {class:'textpre'}, Moa.decodeText(data.subarray(0, 2*1024*1024)) + (data.length > 2*1024*1024 ? '\n\n… (앞부분 2MB만 표시)' : ''));
+  else body = el('div', null, el('div',{class:'dim', style:{marginBottom:'6px'}}, '미리 볼 수 없는 형식이라 앞부분 바이트를 보여줍니다.'), el('div',{class:'hex'}, hexdump(data.subarray(0, 4096))));
+  Moa.modal({title:`${baseOf(it.path)} (${Moa.fmtBytes(data.length)})`, body, width:'auto', onClose:()=>URL.revokeObjectURL(url),
+    buttons:[{label:'파일로 저장', onClick:()=>{ Moa.saveAs(blob, baseOf(it.path)); return false; }}, {label:'닫기', primary:true}]});
+}
+function looksText(d){ const n = Math.min(d.length, 4096); let bad = 0; for (let i = 0; i < n; i++){ const c = d[i]; if (c === 0) return false; if (c < 9 || (c > 13 && c < 32)) bad++; } return bad / Math.max(1, n) < 0.02; }
+function hexdump(d){ let s = ''; for (let o = 0; o < d.length; o += 16){ const row = d.subarray(o, o + 16); s += o.toString(16).padStart(8, '0') + '  ' + Array.from(row, b => b.toString(16).padStart(2, '0')).join(' ').padEnd(48) + '  ' + Array.from(row, b => b >= 32 && b < 127 ? String.fromCharCode(b) : '.').join('') + '\n'; } return s; }
+async function downloadItem(it){ try { const d = await getData(it); Moa.saveAs(new Blob([d]), baseOf(it.path)); } catch(err){ if (err.message !== '취소했습니다') Moa.alert(err.message); } }
+
+/* ============ 압축 풀기 ============ */
+function targetItems(useSel){
+  // 선택 항목(폴더 포함 하위 전체) 또는 전체
+  let base = useSel && selected.size ? items.filter(i => selected.has(i.path)) : items.filter(i => !i.virtual || i.isDir);
+  if (!(useSel && selected.size)) return {list: items.slice(), root:''};
+  const out = new Set();
+  for (const b of base){ out.add(b); if (b.isDir) items.forEach(i => { if (i.path.startsWith(b.path)) out.add(i); }); }
+  return {list:[...out], root: cwd};
+}
+async function extractDialog(){
+  if (!arcName) return toast('먼저 압축 파일을 여세요');
+  const hasSel = selected.size > 0;
+  const body = el('div', {style:{width:'min(480px,86vw)'}},
+    el('fieldset',null, el('legend',null,'풀 대상'),
+      el('label',{class:'chk', style:{display:'flex', margin:'4px 0'}}, el('input',{type:'radio', name:'xs', value:'sel', checked:hasSel, disabled:!hasSel}), `선택한 항목 (${selected.size}개)`),
+      el('label',{class:'chk', style:{display:'flex', margin:'4px 0'}}, el('input',{type:'radio', name:'xs', value:'all', checked:!hasSel}), `전체 파일 (${items.filter(i=>!i.isDir).length}개)`)),
+    el('fieldset',null, el('legend',null,'옵션'),
+      el('label',{class:'chk', style:{display:'flex', margin:'4px 0'}}, el('input',{type:'checkbox', id:'xMk', checked:S.mkFolder}), `'${arcName.replace(/\.(tar\.gz|[^.]+)$/i,'')}' 폴더를 만들어 그 안에 풀기`),
+      el('label',{class:'chk', style:{display:'flex', margin:'4px 0'}}, el('input',{type:'checkbox', id:'xPath', checked:true}), '폴더 구조 유지'),
+      el('label',{class:'chk', style:{display:'flex', margin:'4px 0'}}, el('input',{type:'checkbox', id:'xOver', checked:true}), '같은 이름의 파일은 덮어쓰기')),
+    el('div',{class:'dim', style:{fontSize:'12px'}}, window.showDirectoryPicker ? '확인을 누르면 풀어 놓을 폴더를 고르는 창이 열립니다.' : '이 브라우저는 폴더 쓰기를 지원하지 않아 파일을 하나씩 다운로드합니다. (Chrome·Edge 권장)'));
+  const r = await Moa.modal({title:'압축 풀기', body, width:'auto', buttons:[{label:'취소', value:null}, {label:'파일별 다운로드', onClick:()=>({mode:'download'})}, {label:'폴더에 풀기…', primary:true, onClick:()=>({mode:'folder'})}]});
+  if (!r) return;
+  S.mkFolder = $('#xMk', body)?.checked ?? S.mkFolder; saveS();
+  const useSel = body.querySelector('input[name=xs]:checked').value === 'sel';
+  await doExtract({useSel, mkFolder: body.querySelector('#xMk').checked, keepPath: body.querySelector('#xPath').checked, overwrite: body.querySelector('#xOver').checked, mode: r.mode});
+}
+function smartExtract(){ if (!arcName) return openArchive(); doExtract({useSel:false, mkFolder:true, keepPath:true, overwrite:true, mode: window.showDirectoryPicker ? 'folder' : 'download'}); }
+async function doExtract({useSel, mkFolder, keepPath, overwrite, mode}){
+  const {list, root} = targetItems(useSel);
+  const files = list.filter(i => !i.isDir), dirs = list.filter(i => i.isDir);
+  let dirHandle = null;
+  if (mode === 'folder'){
+    try { dirHandle = await showDirectoryPicker({mode:'readwrite', id:'moazip-extract'}); }
+    catch(e){ if (e.name === 'AbortError') return; toast('폴더를 열 수 없어 다운로드로 풉니다'); mode = 'download'; }
+  }
+  if (mode === 'download' && files.length > 20 && !(await Moa.confirm(`${files.length}개 파일을 각각 다운로드합니다. 계속할까요?\n(Chrome·Edge에서는 '폴더에 풀기'로 한 번에 풀 수 있습니다)`))) return;
+  if (dirHandle && mkFolder){ dirHandle = await dirHandle.getDirectoryHandle(arcName.replace(/\.(tar\.gz|[^.]+)$/i,'').trim() || '압축풀기', {create:true}); }
+  const prog = progressModal('압축 푸는 중');
+  const log = []; let done = 0, fail = 0, bytes = 0;
+  const rel = p => { let r = root && p.startsWith(root) ? p.slice(root.length) : p; if (!keepPath) r = baseOf(r); return r.split('/').filter(x => x && x !== '..' && x !== '.').map(x => x.replace(/[<>:"\\|?*\x00-\x1f]/g, '_')).join('/'); };
+  const dirCache = new Map();
+  const getDir = async (path) => {
+    if (!path) return dirHandle; if (dirCache.has(path)) return dirCache.get(path);
+    const parts = path.split('/'); let h = dirHandle, acc = '';
+    for (const part of parts){ acc += part + '/'; if (dirCache.has(acc)){ h = dirCache.get(acc); continue; } h = await h.getDirectoryHandle(part, {create:true}); dirCache.set(acc, h); }
+    return h;
+  };
+  try {
+    if (dirHandle && keepPath) for (const d of dirs){ const r = rel(d.path); if (r) await getDir(r.replace(/\/$/,'')); }
+    for (const it of files){
+      if (prog.cancelled) break;
+      const r = rel(it.path); prog.set(done / files.length, r);
+      try {
+        const data = await getData(it);
+        if (dirHandle){
+          const dir = await getDir(r.includes('/') ? r.slice(0, r.lastIndexOf('/')) : '');
+          const name = r.split('/').pop();
+          if (!overwrite){ try { await dir.getFileHandle(name); log.push(['skip', r]); done++; continue; } catch(e){} }
+          const fh = await dir.getFileHandle(name, {create:true}); const w = await fh.createWritable(); await w.write(data); await w.close();
+        } else { Moa.download(new Blob([data]), baseOf(r)); await new Promise(res => setTimeout(res, 250)); }
+        bytes += data.length; log.push(['ok', r]);
+      } catch(err){ if (err.message === '취소했습니다'){ prog.cancelled = true; break; } fail++; log.push(['bad', r + ' - ' + err.message]); }
+      done++; await sleep0();
+    }
+  } finally { prog.close(); }
+  const msg = `${done - fail}개 파일 (${Moa.fmtBytes(bytes)})을 풀었습니다.` + (fail ? ` 실패 ${fail}개.` : '') + (prog.cancelled ? ' (중간에 취소됨)' : '');
+  setStatus(msg);
+  if (fail) Moa.modal({title:'압축 풀기 결과', body: el('div',null, el('p',null,msg), el('div',{class:'loglist'}, ...log.filter(l => l[0] === 'bad').map(l => el('div',{class:'bad'}, l[1]))))});
+  else toast(msg, 3000);
+}
+function progressModal(title){
+  const bar = el('i'), txt = el('div',{class:'dim', style:{fontSize:'12px', marginTop:'8px', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis', width:'380px'}}, '준비 중…'), pct = el('div',{style:{marginBottom:'6px'}}, '0%');
+  const st = {cancelled:false};
+  Moa.modal({title, body: el('div',null, pct, el('div',{class:'progress'}, bar), txt), closeOnBg:false, buttons:[{label:'취소', onClick:()=>{ st.cancelled = true; }}]});
+  const m = Moa._lastModal;
+  st.set = (f, t) => { bar.style.width = (f*100).toFixed(1) + '%'; pct.textContent = Math.floor(f*100) + '%'; if (t != null) txt.textContent = t; };
+  st.close = () => m.close();
+  return st;
+}
+
+/* ============ 새로 압축 / 추가 / 편집 ============ */
+async function newArchive(files){
+  if (modified && !(await Moa.confirm('저장하지 않은 변경 내용이 있습니다. 버리고 새로 만들까요?'))) return;
+  if (!files){
+    const which = await Moa.modal({title:'새로 압축하기', body:'압축할 대상을 고르세요. 파일과 폴더를 이 창에 끌어다 놓아도 됩니다.', buttons:[{label:'취소', value:null},{label:'폴더 선택', value:'dir'},{label:'파일 선택', primary:true, value:'file'}]});
+    if (!which) return;
+    files = await Moa.pickFiles({directory: which === 'dir'});
+    if (!files.length) return;
+  }
+  const first = files[0].relPath || files[0].name;
+  const defName = (files.length === 1 ? first.replace(/\.[^.]+$/, '') : (first.includes('/') ? first.split('/')[0] : '새 압축 파일'));
+  const opts = await createOptions(defName, files);
+  if (!opts) return;
+  arc = null; items = []; arcName = opts.name; arcFormat = opts.format; comment = opts.comment || ''; cwd = ''; selected.clear();
+  savePassword = opts.password || null; saveEnc = opts.enc; knownPassword = null;
+  addFilesToItems(files, '');
+  modified = true; render();
+  await saveArchive(false, opts);
+}
+async function createOptions(defName, files){
+  const total = files.reduce((a,f) => a + f.size, 0);
+  const body = el('div', {style:{width:'min(520px,88vw)'}});
+  body.innerHTML = `
+    <div class="dim" style="margin-bottom:8px">${files.length}개 파일 · ${Moa.fmtBytes(total)}</div>
+    <label class="field"><span>압축 파일 이름</span><input type="text" id="cName" value="${esc(defName)}"></label>
+    <label class="field"><span>형식</span><select id="cFmt"><option value="zip">ZIP (가장 널리 쓰임)</option><option value="tgz">TAR.GZ (리눅스/맥)</option><option value="tar">TAR (압축 없이 묶기)</option></select></label>
+    <label class="field"><span>압축 수준</span><select id="cLvl"><option value="0">저장 (압축 안 함, 가장 빠름)</option><option value="1">빠르게</option><option value="6">보통</option><option value="9">최고 압축 (느림)</option></select></label>
+    <fieldset id="cPwSet"><legend>암호 (ZIP만)</legend>
+      <label class="field"><span>암호</span><input type="password" id="cPw" placeholder="비워 두면 암호 없음" autocomplete="new-password"></label>
+      <label class="field"><span>암호 확인</span><input type="password" id="cPw2" autocomplete="new-password"></label>
+      <label class="field"><span>암호화 방식</span><select id="cEnc"><option value="aes">AES-256 (안전, HANAI Zip·알집·7-Zip·반디집 등)</option><option value="zipcrypto">ZipCrypto (윈도우 탐색기 호환, 약함)</option></select></label>
+      <label class="chk"><input type="checkbox" id="cShow"> 암호 보이기</label>
+    </fieldset>
+    <label class="field"><span>파일 이름 인코딩</span><select id="cNE"><option value="utf8">UTF-8 (권장, 최신 프로그램)</option><option value="cp949">CP949 (옛 한글 압축 프로그램 호환)</option></select></label>
+    <label class="field"><span>설명(주석)</span><input type="text" id="cCmt" placeholder="선택 사항"></label>`;
+  body.querySelector('#cFmt').value = S.format; body.querySelector('#cLvl').value = String(S.level); body.querySelector('#cEnc').value = S.enc; body.querySelector('#cNE').value = S.nameEnc;
+  const syncFmt = () => { const z = body.querySelector('#cFmt').value === 'zip'; body.querySelector('#cPwSet').style.opacity = z ? 1 : .4; body.querySelectorAll('#cPwSet input,#cPwSet select').forEach(x => x.disabled = !z); body.querySelector('#cLvl').disabled = body.querySelector('#cFmt').value === 'tar'; };
+  body.querySelector('#cFmt').onchange = syncFmt; syncFmt();
+  body.querySelector('#cShow').onchange = e => body.querySelectorAll('#cPw,#cPw2').forEach(x => x.type = e.target.checked ? 'text' : 'password');
+  return Moa.modal({title:'압축 옵션', body, width:'auto', buttons:[{label:'취소', value:null}, {label:'압축 시작', primary:true, onClick:()=>{
+    const pw = body.querySelector('#cPw').value, pw2 = body.querySelector('#cPw2').value;
+    if (pw !== pw2){ toast('암호가 서로 다릅니다'); return false; }
+    const format = body.querySelector('#cFmt').value; let name = body.querySelector('#cName').value.trim() || '새 압축 파일';
+    const extn = {zip:'.zip', tgz:'.tar.gz', tar:'.tar'}[format]; if (!name.toLowerCase().endsWith(extn)) name = name.replace(/\.(zip|tar\.gz|tgz|tar)$/i, '') + extn;
+    const o = {name, format, level:+body.querySelector('#cLvl').value, password: format === 'zip' ? pw : '', enc: body.querySelector('#cEnc').value, nameEnc: body.querySelector('#cNE').value, comment: body.querySelector('#cCmt').value};
+    if (o.nameEnc === 'cp949' && files.some(f => !MoaZip.canCP949(f.relPath || f.name))){ toast('CP949로 표현할 수 없는 글자가 있어 UTF-8로 저장합니다'); o.nameEnc = 'utf8'; }
+    Object.assign(S, {format:o.format, level:o.level, enc:o.enc, nameEnc:o.nameEnc}); saveS();
+    return o;
+  }}]});
+}
+function addFilesToItems(files, base){
+  const now = new Date();
+  for (const f of files){
+    const rel = (f.relPath || f.name).replace(/\\/g, '/');
+    const path = base + rel;
+    const old = items.findIndex(i => i.path === path);
+    const it = {path, isDir:false, usize:f.size, csize:0, mtime:new Date(f.lastModified || now), crc:null, encrypted:false, src:{kind:'file', file:f}};
+    if (old >= 0) items[old] = it; else items.push(it);
+  }
+  items = items.filter(i => !i.virtual); normalizeDirs();
+}
+async function addPick(dir){
+  if (!arcName) return newArchive(await Moa.pickFiles({directory:dir}).then(f => f.length ? f : null) || undefined);
+  const fs = await Moa.pickFiles({directory:dir}); if (!fs.length) return;
+  addFilesToItems(fs, cwd); modified = true; render(); toast(`${fs.length}개 파일을 추가했습니다. '저장'을 눌러 압축 파일에 반영하세요.`, 3000);
+}
+async function newFolder(){
+  if (!arcName) return toast('먼저 압축 파일을 열거나 만드세요');
+  const n = await Moa.prompt('새 폴더 이름', '새 폴더'); if (!n) return;
+  const p = cwd + n.replace(/[\/\\]/g, '_') + '/';
+  if (items.some(i => i.path === p)) return toast('같은 이름이 있습니다');
+  items.push({path:p, isDir:true, usize:0, csize:0, mtime:new Date(), src:{kind:'dir'}}); modified = true; render();
+}
+async function renameSel(){
+  const it = items.find(i => selected.has(i.path)); if (!it) return toast('이름을 바꿀 항목을 선택하세요');
+  const n = await Moa.prompt('새 이름', baseOf(it.path)); if (!n || n === baseOf(it.path)) return;
+  const np = parentOf(it.path) + n.replace(/[\/\\]/g, '_') + (it.isDir ? '/' : '');
+  if (items.some(i => i.path === np)) return toast('같은 이름이 있습니다');
+  const old = it.path;
+  items.forEach(i => { if (i.path === old || (it.isDir && i.path.startsWith(old))){ i.path = np + i.path.slice(old.length); i.renamed = true; } });
+  selected.clear(); selected.add(np); modified = true; render();
+}
+async function deleteSel(){
+  if (!selected.size) return toast('삭제할 항목을 선택하세요');
+  const sel = items.filter(i => selected.has(i.path));
+  const n = sel.reduce((a, i) => a + (i.isDir ? items.filter(x => !x.isDir && x.path.startsWith(i.path)).length : 1), 0);
+  if (!(await Moa.confirm(`${sel.length}개 항목(파일 ${n}개)을 압축 파일에서 삭제할까요?\n'저장'을 눌러야 실제 파일에 반영됩니다.`))) return;
+  items = items.filter(i => !sel.some(s => i.path === s.path || (s.isDir && i.path.startsWith(s.path))));
+  selected.clear(); modified = true; render();
+}
+
+/* ============ 저장 ============ */
+async function saveArchive(convert, preset){
+  if (!arcName) return toast('저장할 압축 파일이 없습니다');
+  let opts = preset;
+  if (!opts){
+    if (convert || !modified || arcFormat === '7z'){
+      const r = await createOptions(arcName.replace(/\.(zip|tar\.gz|tgz|tar|gz)$/i, ''), items.filter(i => !i.isDir).map(i => ({size:i.usize, name:i.path, relPath:i.path})));
+      if (!r) return; opts = r;
+      savePassword = r.password || null; saveEnc = r.enc; arcFormat = r.format; comment = r.comment || comment;
+    } else opts = {name:arcName, format:arcFormat === 'gz' ? 'tgz' : arcFormat, level:S.level, password:savePassword, enc:saveEnc, nameEnc:S.nameEnc, comment};
+  }
+  const files = items.filter(i => !i.virtual || i.isDir).sort((a, b) => a.path.localeCompare(b.path));
+  const prog = progressModal('압축 파일 만드는 중');
+  try {
+    const enc = opts.password ? opts.enc : null;
+    const wItems = [];
+    for (const it of files){
+      if (it.isDir){ wItems.push({name:it.path, isDir:true, mtime:it.mtime}); continue; }
+      const w = {name:it.path, isDir:false, mtime:it.mtime};
+      const e = it.src.kind === 'arc' ? it.src.e : null;
+      const sameEnc = e && arc && arc.type === 'zip' && opts.format === 'zip' && (e.encrypted ? (enc && opts.password === knownPassword && (e.aes ? 'aes' : 'zipcrypto') === enc) : !enc);
+      if (sameEnc && opts.level === S.level) w.raw = {arc, entry:e};
+      else w.lazy = it;
+      wItems.push(w);
+    }
+    // 필요한 데이터는 쓰기 직전에 읽음
+    const resolve = async (i, n, name) => { prog.set(i / n, name); if (prog.cancelled) throw new Error('취소했습니다'); await sleep0(); const w = wItems[i]; if (w && w.lazy){ w.data = await getData(w.lazy); delete w.lazy; } };
+    let blob;
+    if (opts.format === 'zip') blob = await MoaZip.writeZip(wItems, {level:opts.level, password:opts.password || null, encryption:opts.enc, nameEnc:opts.nameEnc, comment:opts.comment, onProgress:async (i, n, nm) => { if (i < n) await resolve(i, n, nm); else prog.set(1, '마무리 중'); }});
+    else {
+      blob = await MoaZip.writeTar(wItems, {onProgress:async (i, n, nm) => { if (i < n) await resolve(i, n, nm); }});
+      if (opts.format === 'tgz'){ prog.set(1, 'GZIP 압축 중…'); await sleep0(); blob = new Blob([pako.gzip(new Uint8Array(await blob.arrayBuffer()), {level: opts.level || 6})], {type:'application/gzip'}); }
+    }
+    prog.close();
+    const name = opts.name || arcName;
+    const ok = await Moa.saveAs(blob, name, [{description:'압축 파일', accept:{[blob.type || 'application/octet-stream']:[name.match(/\.(tar\.gz|[^.]+)$/i)[0]]}}]);
+    if (!ok) return;
+    // 저장한 파일을 다시 열어 상태 동기화
+    const f = new File([blob], name, {type:blob.type, lastModified:Date.now()});
+    const pw = opts.password || null, enc2 = opts.enc;
+    modified = false; await openArchive(f); knownPassword = pw; savePassword = pw; saveEnc = enc2; setTitle();
+    const tu = items.filter(i => !i.isDir).reduce((a,i) => a + i.usize, 0);
+    setStatus(`저장 완료: ${name} (${Moa.fmtBytes(blob.size)}${tu ? ', ' + Math.max(0, Math.round((1 - blob.size / tu) * 100)) + '% 압축' : ''})`);
+  } catch(err){ prog.close(); console.error(err); if (err.message !== '취소했습니다') Moa.alert(err.message, '저장 실패'); else setStatus('취소했습니다'); }
+}
+async function passwordDialog(){
+  if (!arcName) return toast('먼저 압축 파일을 열거나 만드세요');
+  const body = el('div',{style:{width:'min(440px,86vw)'}, html:`
+    <div class="dim" style="margin-bottom:8px">저장할 때 모든 파일에 암호를 겁니다. 비워 두면 암호를 해제합니다. (ZIP 형식)</div>
+    <label class="field"><span>새 암호</span><input type="password" id="pw1" autocomplete="new-password"></label>
+    <label class="field"><span>암호 확인</span><input type="password" id="pw2" autocomplete="new-password"></label>
+    <label class="field"><span>방식</span><select id="pwE"><option value="aes">AES-256 (권장)</option><option value="zipcrypto">ZipCrypto (호환성)</option></select></label>`});
+  body.querySelector('#pwE').value = saveEnc;
+  const r = await Moa.modal({title:'암호 설정', body, width:'auto', buttons:[{label:'취소', value:null}, {label:'암호 해제', value:{pw:''}}, {label:'설정', primary:true, onClick:()=>{ const a = body.querySelector('#pw1').value; if (a !== body.querySelector('#pw2').value){ toast('암호가 서로 다릅니다'); return false; } if (!a){ toast('암호를 입력하세요'); return false; } return {pw:a, enc:body.querySelector('#pwE').value}; }}]});
+  if (!r) return;
+  if (items.some(i => i.encrypted) && knownPassword == null && r.pw !== undefined){
+    const p = await Moa.prompt('기존 파일을 다시 암호화하려면 현재 암호가 필요합니다', '', {type:'password'}); if (p == null) return; knownPassword = p;
+  }
+  savePassword = r.pw || null; if (r.enc) saveEnc = r.enc;
+  if (arcFormat !== 'zip'){ arcFormat = 'zip'; arcName = arcName.replace(/\.(tar\.gz|tgz|tar|gz)$/i, '') + '.zip'; toast('암호는 ZIP만 지원하므로 ZIP으로 저장합니다'); }
+  modified = true; setTitle(); toast(savePassword ? '저장할 때 암호를 겁니다. \'저장\'을 누르세요.' : '저장할 때 암호를 해제합니다. \'저장\'을 누르세요.', 3000);
+}
+
+/* ============ 테스트 / 정보 / 설명 / 속성 ============ */
+async function testArchive(){
+  if (!arc) return toast('저장된 압축 파일을 먼저 여세요');
+  const files = items.filter(i => !i.isDir && i.src.kind === 'arc');
+  const prog = progressModal('압축 파일 검사 중');
+  let ok = 0; const bad = [];
+  for (let i = 0; i < files.length; i++){
+    if (prog.cancelled) break; prog.set(i / files.length, files[i].path);
+    try { await getData(files[i]); ok++; } catch(e){ if (e.message === '취소했습니다'){ prog.cancelled = true; break; } bad.push(files[i].path + ' - ' + e.message); }
+    await sleep0();
+  }
+  prog.close();
+  Moa.modal({title:'압축 테스트 결과', body: el('div',{style:{width:'min(520px,86vw)'}},
+    el('p',{style:{fontSize:'15px', fontWeight:700, color: bad.length ? 'var(--danger)' : 'var(--ok)'}}, bad.length ? `오류 ${bad.length}개 발견` : '✔ 오류가 없습니다'),
+    el('p',{class:'dim'}, `검사한 파일 ${ok + bad.length}개 · 정상 ${ok}개` + (prog.cancelled ? ' · 중간에 취소' : '')),
+    bad.length ? el('div',{class:'loglist'}, ...bad.map(b => el('div',{class:'bad'}, b))) : null)});
+}
+function infoDialog(){
+  if (!arcName) return toast('열린 압축 파일이 없습니다');
+  const files = items.filter(i => !i.isDir); const tu = files.reduce((a,i) => a + i.usize, 0);
+  const methods = [...new Set(files.filter(i => i.src.kind === 'arc').map(i => MoaZip.methodName(i.method)))].join(', ');
+  const rows = [['파일 이름', arcName], ['형식', arcFormat.toUpperCase() + (arc?.zip64 ? ' (ZIP64)' : '')], ['압축 파일 크기', arc ? Moa.fmtBytes(arc.file.size) + ` (${arc.file.size.toLocaleString()} 바이트)` : '저장 전'],
+    ['원래 크기', Moa.fmtBytes(tu) + ` (${tu.toLocaleString()} 바이트)`], ['압축률', arc && tu ? Math.max(0, Math.round((1 - arc.file.size / tu) * 1000) / 10) + '%' : '-'],
+    ['파일 / 폴더', `${files.length}개 / ${items.filter(i => i.isDir).length}개`], ['압축 방식', methods || '-'], ['암호', files.some(i => i.encrypted) ? '있음 (' + [...new Set(files.filter(i=>i.encrypted).map(i => i.src.e?.aes ? 'AES-' + [0,128,192,256][i.src.e.aes.strength] : 'ZipCrypto'))].join(', ') + ')' : '없음'],
+    ['수정한 날짜', arc ? Moa.fmtDate(arc.file.lastModified) : '-'], ['설명', comment || '없음']];
+  Moa.modal({title:'압축 파일 정보', body:`<dl class="kv" style="display:grid;grid-template-columns:110px 1fr;gap:6px 12px;margin:0;width:min(460px,80vw)">${rows.map(([k,v]) => `<dt class="dim">${k}</dt><dd style="margin:0;word-break:break-all">${esc(v)}</dd>`).join('')}</dl>`});
+}
+async function commentDialog(){
+  if (!arcName) return toast('열린 압축 파일이 없습니다');
+  const ta = el('textarea',{style:{width:'min(520px,80vw)', height:'200px'}}); ta.value = comment;
+  const r = await Moa.modal({title:'압축 파일 설명 (ZIP 주석)', body:ta, buttons:[{label:'닫기', value:null}, {label:'설명 바꾸기', primary:true, onClick:()=>ta.value}]});
+  if (r != null && r !== comment){ comment = r; modified = true; setTitle(); toast("'저장'을 누르면 설명이 반영됩니다"); }
+}
+function props(it){
+  const e = it.src?.kind === 'arc' ? it.src.e : null;
+  const st = it.isDir ? folderStats(it.path) : null;
+  const rows = [['이름', baseOf(it.path)], ['위치', '/' + parentOf(it.path)], ['종류', typeLabel(it)], ['원래 크기', it.isDir ? `${Moa.fmtBytes(st.u)} (파일 ${st.n}개)` : Moa.fmtBytes(it.usize) + ` (${it.usize.toLocaleString()} 바이트)`],
+    ['압축 크기', it.isDir ? Moa.fmtBytes(st.c) : (e ? Moa.fmtBytes(it.csize) : '저장 전')], ['압축 방식', e ? MoaZip.methodName(it.method) : '-'], ['CRC32', it.crc != null ? it.crc.toString(16).toUpperCase().padStart(8, '0') : '-'],
+    ['암호', it.encrypted ? (e?.aes ? 'AES-' + [0,128,192,256][e.aes.strength] : 'ZipCrypto') : '없음'], ['수정한 날짜', Moa.fmtDate(it.mtime)], ['설명', e?.comment || '']];
+  Moa.modal({title:'속성', body:`<dl style="display:grid;grid-template-columns:90px 1fr;gap:6px 12px;margin:0;width:min(420px,80vw)">${rows.filter(r => r[1]).map(([k,v]) => `<dt class="dim">${k}</dt><dd style="margin:0;word-break:break-all">${esc(v)}</dd>`).join('')}</dl>`});
+}
+function help(){
+  Moa.modal({title:'HANAI Zip 도움말', width:580, body:`<p style="margin-top:0"><b>압축 풀기:</b> 압축 파일을 끌어다 놓거나 <b>열기</b>로 연 뒤 <b>알아서 풀기</b>(압축 파일 이름의 폴더에 바로 풀기) 또는 <b>압축 풀기</b>(선택 항목·옵션 지정)를 누르세요. 원하는 파일만 골라 미리 보거나 저장할 수도 있습니다.</p>
+  <p><b>압축하기:</b> 파일·폴더를 끌어다 놓거나 <b>새로 압축</b>을 누르고 형식·압축 수준·암호를 고르세요. ZIP 암호는 AES-256(안전)과 ZipCrypto(윈도우 탐색기 호환)를 지원합니다.</p>
+  <p><b>편집:</b> 열린 압축 파일에 파일 추가·삭제·이름 바꾸기·새 폴더 후 <b>저장</b>하면 새 압축 파일이 만들어집니다. <b>형식 변환</b>으로 ZIP ↔ TAR.GZ 변환도 됩니다.</p>
+  <p><b>글자 깨짐:</b> 아래 상태 표시줄의 '파일 이름: …'을 눌러 인코딩(한국어/일본어/중국어 등)을 바꾸세요.</p>
+  <p class="dim">지원 형식: ZIP(ZIP64 읽기, Deflate·저장, ZipCrypto·AES 암호), <b>7Z 풀기(LZMA·LZMA2·BZip2·Deflate·BCJ 필터·AES-256 암호, 파일 목록 암호화 포함)</b>, JAR/APK/DOCX 등 ZIP 기반 파일, TAR, TAR.GZ(TGZ), GZ. 7Z는 풀기만 되며 저장할 때는 ZIP/TAR.GZ로 바뀝니다. RAR·ALZ·EGG, 7Z의 PPMd 방식은 열 수 없습니다.</p>` +
+  Moa.shortcutTable([['Ctrl+O','압축 파일 열기'],['Ctrl+N','새로 압축'],['Ctrl+E','압축 풀기'],['Ctrl+S','저장'],['Enter','폴더 열기 / 미리 보기'],['Backspace','상위 폴더'],['F2','이름 바꾸기'],['F3','미리 보기'],['Delete','삭제'],['Ctrl+A','전체 선택'],['Ctrl+F','찾기']])});
+}
+
+/* ============ 드래그 앤 드롭 ============ */
+const ARC_RE = /\.(zip|7z|tar|tgz|gz|jar|apk|xpi|epub|docx|xlsx|pptx|hwpx|odt|whl|nupkg)$/i;
+Moa.enableDrop(async files => {
+  if (!files.length) return;
+  if (files.length === 1 && ARC_RE.test(files[0].name)){
+    if (!arcName) return openArchive(files[0]);
+    const r = await Moa.modal({title:files[0].name, body:'이 압축 파일을 어떻게 할까요?', buttons:[{label:'취소', value:null}, {label:'현재 압축 파일에 추가', value:'add'}, {label:'열기', primary:true, value:'open'}]});
+    if (r === 'open') return openArchive(files[0]); if (r !== 'add') return;
+  }
+  if (!arcName) return newArchive(files);
+  const r = await Moa.modal({title:`${files.length}개 파일`, body:`'${arcName}'의 현재 폴더(/${cwd})에 추가할까요, 새 압축 파일을 만들까요?`, buttons:[{label:'취소', value:null}, {label:'새로 압축', value:'new'}, {label:'현재 압축 파일에 추가', primary:true, value:'add'}]});
+  if (r === 'new') return newArchive(files);
+  if (r === 'add'){ addFilesToItems(files, cwd); modified = true; render(); toast(`${files.length}개 파일을 추가했습니다. '저장'을 눌러 반영하세요.`, 3000); }
+}, '압축 파일을 열거나, 파일·폴더를 압축합니다');
+
+/* ============ 단축키 ============ */
+document.addEventListener('keydown', e => {
+  if (document.querySelector('.moa-modal-bg')) return;
+  const inInput = e.target.matches('input,textarea,select');
+  const k = e.key, c = e.ctrlKey || e.metaKey;
+  if (c && (k === 'o' || k === 'O')){ e.preventDefault(); openArchive(); }
+  else if (c && (k === 'n' || k === 'N')){ e.preventDefault(); newArchive(); }
+  else if (c && (k === 'e' || k === 'E')){ e.preventDefault(); extractDialog(); }
+  else if (c && (k === 's' || k === 'S')){ e.preventDefault(); saveArchive(); }
+  else if (c && (k === 'f' || k === 'F')){ e.preventDefault(); $('#search').focus(); }
+  else if (inInput) return;
+  else if (c && (k === 'a' || k === 'A')){ e.preventDefault(); visible().forEach(i => selected.add(i.path)); updateSelStatus(); }
+  else if (k === 'Backspace'){ e.preventDefault(); if (cwd) cd(parentOf(cwd)); }
+  else if (k === 'Enter'){ const it = items.find(i => selected.has(i.path)); if (it) it.isDir ? cd(it.path) : preview(it); }
+  else if (k === 'Delete') deleteSel();
+  else if (k === 'F2'){ e.preventDefault(); renameSel(); }
+  else if (k === 'F3'){ e.preventDefault(); previewSel(); }
+  else if (k === 'F1'){ e.preventDefault(); help(); }
+  else if (k === 'ArrowDown' || k === 'ArrowUp'){
+    e.preventDefault(); const vis = visible().map(i => i.path); if (!vis.length) return;
+    let i = vis.indexOf(lastSel); i = Math.max(0, Math.min(vis.length - 1, i + (k === 'ArrowDown' ? 1 : -1)));
+    if (!e.shiftKey) selected.clear(); selected.add(vis[i]); lastSel = vis[i]; updateSelStatus();
+    $('#rows').querySelector(`tr[data-path="${CSS.escape(vis[i])}"]`)?.scrollIntoView({block:'nearest'});
+  }
+});
+window.addEventListener('beforeunload', e => { if (modified){ e.preventDefault(); e.returnValue = ''; } });
+
+render();
+window.MoaZipApp = {openArchive, newArchive, get items(){ return items; }, saveArchive, getData, doExtract, setPw:p=>{knownPassword=p;}};
+})();
+</script>
+<script>/* 웹판: 처음 화면 · 기본판 ↔ Plus판 전환 */
+(function(){
+  var plus = /\/plus\//.test(location.pathname), f = location.pathname.split('/').pop() || 'index.html';
+  var t = document.querySelector('.moa-title'); if (!t) return;
+  function b(txt, href, title, ask){ var a = document.createElement('a'); a.className = 'btn sm'; a.textContent = txt; a.href = href; a.title = title; a.style.marginLeft = '6px'; a.style.textDecoration = 'none';
+    if (ask) a.onclick = function(e){ if (!confirm('지금 열려 있는 파일과 작업은 닫힙니다.\n' + (plus ? '기본판' : 'Plus판') + '으로 바꿀까요?')) e.preventDefault(); };
+    t.appendChild(a); }
+  b('처음 화면', './', 'HANAI Tools 처음 화면', true);
+  b(plus ? '기본판으로' : 'Plus판으로', (plus ? '../' : 'plus/') + f, plus ? '같은 프로그램의 기본판을 엽니다' : '같은 프로그램의 Plus판을 엽니다 (7Z·음정·MP3·글자 추출·AI 배경 지우기 등)', true);
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 32 32%22%3E%3Crect width=%2232%22 height=%2232%22 rx=%228%22 fill=%22%237c8cff%22/%3E%3Ctext x=%2216%22 y=%2223%22 font-size=%2219%22 font-family=%22Arial%22 font-weight=%22700%22 text-anchor=%22middle%22 fill=%22white%22%3EH%3C/text%3E%3C/svg%3E">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>HANAI Tools</title>
+<link rel="stylesheet" href="lib/moa.css">
+<style>
+body{overflow:auto}
+.wrap{max-width:1040px;margin:0 auto;padding:40px 20px}
+.hero{display:flex;align-items:center;gap:16px;margin-bottom:8px}
+.hero .moa-logo{width:54px;height:54px;font-size:26px;border-radius:14px}
+.hero h1{margin:0;font-size:30px}
+.lead{color:var(--dim);margin:0 0 30px;line-height:1.7}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:16px}
+.app{display:flex;gap:16px;padding:20px;border:1px solid var(--line);border-radius:16px;background:var(--panel);text-decoration:none;color:var(--text);transition:transform .15s,border-color .15s}
+.app:hover{transform:translateY(-2px);border-color:var(--accent)}
+.app .ic{width:56px;height:56px;border-radius:14px;display:grid;place-items:center;flex:none;color:#fff}
+.app .ic svg{width:30px;height:30px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+.app h2{margin:0 0 4px;font-size:18px}
+.app p{margin:0;color:var(--dim);font-size:12.5px;line-height:1.6}
+.app ul{margin:8px 0 0;padding-left:16px;color:var(--dim);font-size:12px;line-height:1.7}
+.foot{margin-top:34px;color:var(--dim);font-size:12px;line-height:1.8;border-top:1px solid var(--line);padding-top:16px}
+.top{position:fixed;right:16px;top:14px}
+</style>
+</head>
+<body>
+<div class="top"><a class="btn sm" href="plus/" style="text-decoration:none">Plus판으로 ▶</a> <button class="btn sm" id="skin">스킨</button></div>
+<div class="wrap">
+  <div class="hero"><div class="moa-logo">H</div><h1>HANAI Tools</h1></div>
+  <p class="lead">설치 없이 브라우저(Chrome·Edge 권장)에서 바로 쓰는 생활 필수 프로그램 모음입니다.<br>모든 파일은 내 컴퓨터 안에서만 처리되며 인터넷으로 전송되지 않습니다.</p>
+  <div class="grid" id="grid"></div>
+  <div class="foot">
+    · 웹 주소로 쓰는 판입니다. 처음 열 때 인터넷이 필요하고, 고른 파일은 인터넷으로 보내지 않고 이 기기 안에서만 처리합니다.<br>
+    · <b>기본판</b>과 <b>Plus판</b>은 위쪽 단추로 언제든 바꿀 수 있습니다. 스킨·설정·이어 보기 기록은 두 판이 함께 씁니다.<br>
+    · Chrome·Edge(PC)를 권장합니다. 폰·태블릿에서는 폴더 열기·원본 저장 등 일부 기능이 안 됩니다.<br>
+    · 자세한 사용법은 각 프로그램의 <b>도움말(F1)</b>과 <a href="MANUAL.txt">사용설명서</a>, 라이선스는 <a href="LICENSES.txt">LICENSES.txt</a>를 보세요.
+  </div>
+</div>
+<script src="lib/moa-common.js"></script>
+<script>
+Moa.applyTheme('home');
+const APPS = [
+  {file:'song.html', name:'HANAI Song', color:'linear-gradient(135deg,#3fc1c9,#7c8cff)', icon:'music', desc:'음악 플레이어', feats:['싱크 가사·인터넷 가사 찾기·데스크톱 가사창','라이브러리·즐겨찾기·태그 일괄 편집','EQ·음장 효과·크로스페이드·음악 편집·녹음']},
+  {file:'zip.html', name:'HANAI Zip', color:'linear-gradient(135deg,#f2b134,#e0743a)', icon:'zip', desc:'압축 프로그램', feats:['ZIP·TAR·TGZ 압축/풀기, 한글 파일명','AES-256·ZipCrypto 암호','미리 보기·편집·형식 변환·압축 테스트']},
+  {file:'view.html', name:'HANAI View', color:'linear-gradient(135deg,#e0679b,#a65cff)', icon:'image', desc:'이미지 뷰어·편집기', feats:['폴더 썸네일·크게 보기·슬라이드 쇼·EXIF','자르기·보정·효과·모자이크·글자·테두리','일괄 변환·사진 합치기·GIF 만들기']},
+  {file:'pdf.html', name:'HANAI PDF', color:'linear-gradient(135deg,#e5484d,#ff8a65)', icon:'file', desc:'PDF 뷰어·편집기', feats:['보기·찾기·인쇄, 페이지 정리','합치기·나누기·이미지↔PDF·압축','주석·서명·도장·워터마크·쪽 번호']},
+  {file:'capture.html', name:'HANAI Capture', color:'linear-gradient(135deg,#34c759,#00a2c7)', icon:'camera', desc:'화면 캡처', feats:['영역·전체·창·지연 캡처, 돋보기','화살표·도형·번호·모자이크·강조','복사·저장(PNG/JPG/PDF)·캡처 기록']},
+  {file:'player.html', name:'HANAI Player', color:'linear-gradient(135deg,#5b6cff,#c13fd1)', icon:'play', desc:'동영상 플레이어', feats:['MP4·WebM·MKV, SMI·SRT·ASS 자막·이중 자막','배속·프레임 이동·구간 반복·책갈피·이어 보기','화면 캡처·연속 캡처·GIF·구간 저장·음성 추출']},
+  {file:'photo.html', name:'HANAI Photo', color:'linear-gradient(135deg,#ff7a59,#ff3d77)', icon:'palette', desc:'사진 꾸미기·편집', feats:['액자·필터·글자·말풍선·스티커·잡티 제거','페이지(콜라주)·이어 붙이기·GIF·분할','일괄 편집·증명사진 인쇄·색 추출·이름 바꾸기']},
+];
+const g = document.getElementById('grid');
+APPS.forEach(a => g.append(Moa.el('a',{class:'app', href:encodeURI(a.file)},
+  Moa.el('div',{class:'ic', style:{background:a.color}, html:Moa.icon(a.icon)}),
+  Moa.el('div',null, Moa.el('h2',null,a.name), Moa.el('p',null,a.desc), Moa.el('ul',null, ...a.feats.map(f => Moa.el('li',null,f)))))));
+document.getElementById('skin').onclick = e => Moa.themeMenu('home', e.clientX - 120, e.clientY + 14, k => { ['song','zip','see','pdf','cap','player','photo'].forEach(x => Moa.store.set('moa.theme.' + x, k)); Moa.store.set('moa.theme', k); });
+</script>
+</body>
+</html>

@@ -1,0 +1,920 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 32 32%22%3E%3Crect width=%2232%22 height=%2232%22 rx=%228%22 fill=%22%237c8cff%22/%3E%3Ctext x=%2216%22 y=%2223%22 font-size=%2219%22 font-family=%22Arial%22 font-weight=%22700%22 text-anchor=%22middle%22 fill=%22white%22%3EH%3C/text%3E%3C/svg%3E">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>HANAI View - HANAI Tools 이미지 뷰어</title>
+<link rel="stylesheet" href="lib/moa.css">
+<style>
+.body{flex:1;display:grid;grid-template-columns:220px 1fr 280px;min-height:0}
+@media (max-width:1100px){.body{grid-template-columns:200px 1fr}.info{display:none}}
+@media (max-width:700px){.body{grid-template-columns:1fr}.tree{display:none}}
+.tree{border-right:1px solid var(--line);overflow:auto;padding:6px 0;background:var(--panel)}
+.tree .node{display:flex;gap:6px;align-items:center;padding:4px 10px;cursor:pointer;white-space:nowrap;border-radius:6px;margin:0 4px}
+.tree .node:hover{background:var(--hover)}
+.tree .node.cur{background:color-mix(in srgb,var(--accent) 22%,transparent);font-weight:700}
+.tree .cnt{color:var(--dim);font-size:11px;margin-left:auto}
+.center{display:flex;flex-direction:column;min-height:0}
+.gbar{display:flex;gap:6px;align-items:center;padding:6px 8px;border-bottom:1px solid var(--line);background:var(--panel)}
+.gbar input[type=search]{width:200px}
+.grid{flex:1;overflow:auto;padding:10px;display:grid;grid-template-columns:repeat(auto-fill,minmax(var(--th,150px),1fr));gap:10px;align-content:start}
+.thumb{border:2px solid transparent;border-radius:10px;background:var(--panel);padding:6px;cursor:pointer;display:flex;flex-direction:column;gap:4px;user-select:none}
+.thumb:hover{border-color:var(--line)}
+.thumb.sel{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 14%,var(--panel))}
+.thumb .im{aspect-ratio:1;display:grid;place-items:center;background:var(--bg2);border-radius:6px;overflow:hidden}
+.thumb .im img{max-width:100%;max-height:100%;object-fit:contain}
+.thumb .nm{font-size:11.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:center}
+.thumb .sz{font-size:10.5px;color:var(--dim);text-align:center}
+.info{border-left:1px solid var(--line);overflow:auto;padding:10px;background:var(--panel)}
+.info img{width:100%;max-height:200px;object-fit:contain;background:var(--bg2);border-radius:8px}
+.kv{display:grid;grid-template-columns:76px 1fr;gap:4px 8px;font-size:12px;margin-top:8px}
+.kv dt{color:var(--dim)}.kv dd{margin:0;word-break:break-all}
+#hist{width:100%;height:80px;background:var(--bg2);border-radius:6px;margin-top:10px}
+/* 뷰어 */
+.viewer{position:fixed;inset:0;background:#0a0b10;z-index:500;display:flex;flex-direction:column;color:#e8eaf2}
+.viewer.light{background:#eceef3;color:#222}
+.vbar{display:flex;align-items:center;gap:2px;padding:4px 8px;background:rgba(20,22,32,.92);flex:none;transition:opacity .25s}
+.viewer.light .vbar{background:rgba(255,255,255,.95)}
+.vbar .ibtn{color:inherit}
+.vbar .ttl{font-weight:700;margin:0 10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:40vw}
+.vbar .dim{color:#9aa0b8}
+.vstage{flex:1;position:relative;overflow:hidden;cursor:grab}
+.vstage.drag{cursor:grabbing}
+.vstage img{position:absolute;left:0;top:0;transform-origin:0 0;user-select:none;-webkit-user-drag:none;image-rendering:auto}
+.vstage img.pixel{image-rendering:pixelated}
+.vstage img.fade{transition:opacity .6s}
+.vnav{position:absolute;top:50%;transform:translateY(-50%);width:56px;height:100px;border:0;background:rgba(0,0,0,.25);color:#fff;font-size:30px;cursor:pointer;opacity:0;transition:.2s;border-radius:8px}
+.vstage:hover .vnav{opacity:.8}
+.vnav.l{left:10px}.vnav.r{right:10px}
+.film{display:flex;gap:4px;overflow-x:auto;padding:6px;background:rgba(20,22,32,.92);flex:none}
+.viewer.light .film{background:rgba(255,255,255,.95)}
+.film img{height:56px;width:56px;object-fit:cover;border-radius:4px;opacity:.55;cursor:pointer;border:2px solid transparent;flex:none}
+.film img.cur{opacity:1;border-color:var(--accent)}
+.vinfo{position:absolute;right:10px;top:10px;background:rgba(0,0,0,.65);color:#fff;padding:10px 12px;border-radius:10px;font-size:12px;max-width:300px;pointer-events:none}
+.vinfo dl{display:grid;grid-template-columns:70px 1fr;gap:3px 8px;margin:0}.vinfo dt{opacity:.65}.vinfo dd{margin:0}
+.viewer.slideshow .vbar,.viewer.slideshow .film{opacity:0}
+.viewer.slideshow:hover .vbar{opacity:1}
+.zoomtag{position:absolute;left:50%;bottom:16px;transform:translateX(-50%);background:rgba(0,0,0,.6);color:#fff;padding:3px 10px;border-radius:12px;font-size:12px;pointer-events:none;opacity:0;transition:.3s}
+/* 편집기 */
+.editor{position:fixed;inset:0;z-index:600;background:var(--bg);display:flex;flex-direction:column}
+.ebody{flex:1;display:grid;grid-template-columns:64px 1fr 270px;min-height:0}
+.etools{display:flex;flex-direction:column;gap:2px;padding:6px;background:var(--panel);border-right:1px solid var(--line);overflow:auto}
+.etools .tb{min-width:0;padding:6px 2px;font-size:10px}
+.estage{position:relative;overflow:auto;background:repeating-conic-gradient(#8882 0% 25%,transparent 0% 50%) 0 0/20px 20px;display:grid;place-items:center}
+.estage canvas{box-shadow:0 4px 20px rgba(0,0,0,.4);max-width:none}
+.eopts{background:var(--panel);border-left:1px solid var(--line);padding:12px;overflow:auto}
+.eopts h3{margin:0 0 10px;font-size:14px}
+.eopts .row{margin:8px 0}
+.eopts label.sl{display:grid;grid-template-columns:80px 1fr 40px;align-items:center;gap:6px;margin:8px 0}
+.eopts .val{font-size:11px;color:var(--dim);text-align:right}
+.eopts label.sl input{min-width:0;width:100%}
+.eopts label.sl{grid-template-columns:72px minmax(0,1fr) 38px}
+.overlay{position:absolute;pointer-events:none}
+.cropbox{position:absolute;border:1px dashed #fff;box-shadow:0 0 0 9999px rgba(0,0,0,.5);outline:1px solid #000;pointer-events:none}
+.swatches{display:flex;gap:4px;flex-wrap:wrap}
+.swatches button{width:22px;height:22px;border-radius:5px;border:1px solid var(--line)}
+</style>
+</head>
+<body>
+<div class="moa-app" id="app">
+  <div class="moa-title"><div class="moa-logo">C</div><h1>HANAI View</h1><span class="sub">HANAI Tools 이미지 뷰어</span><span class="grow"></span><span class="sub" id="rootName"></span></div>
+  <div class="moa-toolbar" id="toolbar"></div>
+  <div class="body">
+    <div class="tree" id="tree"></div>
+    <div class="center">
+      <div class="gbar">
+        <button class="btn sm" id="bSort">정렬: 이름 ▾</button>
+        <span class="dim">크기</span><input type="range" id="thSize" min="90" max="320" value="150" style="width:110px">
+        <span class="grow"></span>
+        <input type="search" id="search" placeholder="파일 이름 찾기">
+      </div>
+      <div class="grid" id="grid"></div>
+    </div>
+    <div class="info" id="info"></div>
+  </div>
+  <div class="moa-status"><span class="grow" id="status">준비</span><span id="stSel"></span><span id="stCount"></span></div>
+</div>
+<script src="lib/pako.min.js"></script>
+<script src="lib/moa-common.js"></script>
+<script src="lib/moa-zip.js"></script>
+<script src="lib/moa-img.js"></script>
+<script>
+(() => {
+'use strict';
+const {$, el, esc, toast, icon} = Moa;
+Moa.applyTheme('see');
+const S = Object.assign({sort:'name', sortD:1, th:150, slideSec:3, slideFx:'fade', slideLoop:true, viewerBg:'dark', fitMode:'fit', quality:0.92}, Moa.store.get('moasee.settings', {}));
+const saveS = () => Moa.store.set('moasee.settings', S);
+const IMG_RE = /\.(jpe?g|png|gif|webp|bmp|avif|svg|ico|jfif|apng)$/i;
+
+/* 상태 */
+let all = [];          // {id, name, path, dir, file, handle, dirHandle, size, mtime, w, h, thumb, url, exif}
+let dirs = new Map();  // path -> {name, handle}
+let curDir = null;     // null = 전체
+let shown = [];
+let selected = new Set(), lastSel = null, focusId = null;
+let rootHandle = null;
+let uid = 0;
+
+Moa.toolbar($('#toolbar'), [
+  {icon:'folder', label:'폴더 열기', title:'사진 폴더 열기 (Ctrl+Shift+O)', onClick:()=>openFolder()},
+  {icon:'open', label:'파일 열기', title:'사진 파일 열기 (Ctrl+O)', onClick:()=>openFiles()},
+  {icon:'copy', label:'붙여넣기', title:'클립보드의 그림 열기 (Ctrl+V)', onClick:()=>pasteClipboard()},
+  '|',
+  {icon:'eye', label:'보기', title:'크게 보기 (Enter)', onClick:()=>openViewer()},
+  {icon:'slideshow', label:'슬라이드 쇼', title:'슬라이드 쇼 (F5)', onClick:()=>openViewer(null, true)},
+  {icon:'edit', label:'편집', title:'사진 편집 (E)', onClick:()=>openEditor()},
+  '|',
+  {icon:'rotL', label:'왼쪽 회전', title:'왼쪽으로 90° 회전해 저장 (Ctrl+L)', onClick:()=>quickRotate(-90)},
+  {icon:'rotR', label:'오른쪽 회전', title:'오른쪽으로 90° 회전해 저장 (Ctrl+R)', onClick:()=>quickRotate(90)},
+  {icon:'convert', label:'일괄 변환', title:'형식·크기·이름 한 번에 바꾸기', onClick:()=>batchDialog()},
+  {icon:'grid', label:'사진 합치기', title:'여러 사진을 한 장으로', onClick:()=>combineDialog()},
+  {icon:'image', label:'GIF 만들기', title:'움직이는 GIF 만들기', onClick:()=>gifDialog()},
+  '|',
+  {icon:'edit', label:'이름 바꾸기', title:'이름 바꾸기 (F2)', onClick:()=>renameSel()},
+  {icon:'trash', label:'삭제', title:'목록에서 빼기 / 파일 삭제 (Delete)', onClick:()=>deleteSel()},
+  {icon:'copy', label:'복사', title:'그림을 클립보드로 복사 (Ctrl+C)', onClick:()=>copySel()},
+  {icon:'print', label:'인쇄', title:'인쇄 (Ctrl+P)', onClick:()=>printSel()},
+  '|',
+  {icon:'palette', label:'스킨', onClick:e=>Moa.themeMenu('see', e.clientX, e.clientY+10)},
+  {icon:'gear', label:'설정', onClick:()=>settings()},
+  {icon:'help', label:'도움말', onClick:()=>help()},
+]);
+
+/* ================= 파일 불러오기 ================= */
+async function openFolder(){
+  if (window.showDirectoryPicker){
+    try {
+      const h = await showDirectoryPicker({mode:'readwrite', id:'moasee'});
+      rootHandle = h; await loadFromHandle(h); return;
+    } catch(e){ if (e.name === 'AbortError') return; console.warn(e); }
+  }
+  const fs = await Moa.pickFiles({directory:true}); if (fs.length){ rootHandle = null; addFiles(fs, true); }
+}
+async function openFiles(){ const fs = await Moa.pickFiles({accept:'image/*'}); if (fs.length) addFiles(fs, false); }
+async function loadFromHandle(root){
+  all = []; dirs = new Map(); selected.clear(); setStatus('폴더를 읽는 중…');
+  $('#rootName').textContent = root.name;
+  const walk = async (h, path, depth) => {
+    dirs.set(path, {name: h.name, handle: h});
+    const subs = [];
+    for await (const [name, e] of h.entries()){
+      if (e.kind === 'file' && IMG_RE.test(name)){ const f = await e.getFile(); all.push(mkItem(f, path, e, h)); }
+      else if (e.kind === 'directory' && depth < 6 && !name.startsWith('.')) subs.push([e, path + name + '/']);
+    }
+    for (const [e, p] of subs) await walk(e, p, depth + 1);
+  };
+  await walk(root, root.name + '/', 0);
+  curDir = root.name + '/';
+  afterLoad();
+}
+function mkItem(f, dir, handle, dirHandle){ return {id: ++uid, name: f.name, path: dir + f.name, dir, file: f, handle, dirHandle, size: f.size, mtime: f.lastModified, w:0, h:0}; }
+function addFiles(files, asFolder){
+  const imgs = files.filter(f => IMG_RE.test(f.name) || (f.type || '').startsWith('image/'));
+  if (!imgs.length) return toast('그림 파일이 없습니다');
+  if (asFolder){ all = []; dirs = new Map(); selected.clear(); }
+  for (const f of imgs){
+    const rel = (f.relPath || f.webkitRelativePath || f.name).replace(/\\/g, '/');
+    const dir = rel.includes('/') ? rel.slice(0, rel.lastIndexOf('/') + 1) : '열린 파일/';
+    let p = ''; dir.split('/').filter(Boolean).forEach(part => { p += part + '/'; if (!dirs.has(p)) dirs.set(p, {name: part}); });
+    if (!all.some(x => x.path === dir + f.name && x.size === f.size)) all.push(mkItem(f, dir, null, null));
+  }
+  const firstDir = all[all.length - 1].dir;
+  if (asFolder) $('#rootName').textContent = [...dirs.keys()][0]?.replace(/\/$/, '') || '';
+  curDir = asFolder ? [...dirs.keys()][0] : firstDir;
+  afterLoad();
+  if (!asFolder && imgs.length === 1){ const it = all.find(x => x.file === imgs[0]); if (it) openViewer(it); }
+}
+function afterLoad(){ renderTree(); renderGrid(); setStatus(`사진 ${all.length}장`); }
+async function pasteClipboard(){
+  try {
+    const items = await navigator.clipboard.read();
+    for (const it of items){ const t = it.types.find(x => x.startsWith('image/')); if (t){ const b = await it.getType(t); addFiles([new File([b], '붙여넣은 그림 ' + new Date().toLocaleTimeString('ko-KR').replace(/:/g,'-') + '.png', {type:b.type})], false); return; } }
+    toast('클립보드에 그림이 없습니다');
+  } catch(e){ toast('Ctrl+V로 붙여넣어 주세요'); }
+}
+document.addEventListener('paste', e => {
+  if (document.querySelector('.editor,.moa-modal-bg')) return;
+  const f = [...(e.clipboardData?.files || [])].filter(x => x.type.startsWith('image/'));
+  if (f.length){ e.preventDefault(); addFiles(f.map(x => new File([x], x.name === 'image.png' ? '붙여넣은 그림.png' : x.name, {type:x.type})), false); }
+});
+Moa.enableDrop(fs => addFiles(fs, fs.some(f => (f.relPath||'').includes('/'))), '사진 파일이나 폴더를 놓으세요');
+
+/* ================= 트리 / 그리드 ================= */
+function renderTree(){
+  const t = $('#tree'); t.innerHTML = '';
+  const cnt = p => all.filter(x => x.dir.startsWith(p)).length;
+  t.append(el('div',{class:'node' + (curDir === null ? ' cur' : ''), onclick:()=>{ curDir = null; renderTree(); renderGrid(); }}, '🗂 모든 사진', el('span',{class:'cnt'}, all.length)));
+  [...dirs.keys()].sort((a,b) => a.localeCompare(b, 'ko', {numeric:true})).forEach(p => {
+    const depth = p.split('/').length - 2; const n = cnt(p); if (!n) return;
+    t.append(el('div',{class:'node' + (curDir === p ? ' cur' : ''), style:{paddingLeft:(10 + depth*14) + 'px'}, title:p, onclick:()=>{ curDir = p; renderTree(); renderGrid(); }}, '📁 ' + dirs.get(p).name, el('span',{class:'cnt'}, n)));
+  });
+}
+let filterText = '';
+function computeShown(){
+  let list = curDir === null ? all.slice() : all.filter(x => x.dir === curDir);
+  if (filterText) list = list.filter(x => x.name.toLowerCase().includes(filterText.toLowerCase()));
+  const k = S.sort, d = S.sortD;
+  const v = x => k === 'name' ? x.name : k === 'date' ? x.mtime : k === 'size' ? x.size : k === 'type' ? x.name.split('.').pop().toLowerCase() + x.name : k === 'dim' ? x.w * x.h : x.name;
+  list.sort((a, b) => { const p = v(a), q = v(b); return (typeof p === 'number' ? p - q : String(p).localeCompare(String(q), 'ko', {numeric:true})) * d; });
+  shown = list;
+}
+const SORTS = {name:'이름', date:'날짜', size:'파일 크기', type:'종류', dim:'해상도'};
+function renderGrid(){
+  computeShown();
+  $('#bSort').textContent = `정렬: ${SORTS[S.sort]} ${S.sortD > 0 ? '↑' : '↓'} ▾`;
+  const g = $('#grid'); g.innerHTML = ''; g.style.setProperty('--th', S.th + 'px'); $('#thSize').value = S.th;
+  if (!all.length){
+    g.append(el('div',{class:'empty-state', style:{gridColumn:'1/-1'}, html:`<svg viewBox="0 0 24 24">${Moa.icons.image}</svg><div>사진 폴더나 파일을 이 창에 끌어다 놓거나<br><b>폴더 열기</b>를 누르세요.<br><span style="font-size:11px">JPG · PNG · GIF · WEBP · BMP · AVIF · SVG 지원 · 폴더를 열면 편집 후 바로 저장할 수 있습니다</span></div>`},
+      el('div',{class:'row'}, el('button',{class:'btn primary', onclick:openFolder}, '폴더 열기'), el('button',{class:'btn', onclick:openFiles}, '파일 열기'))));
+  }
+  const frag = document.createDocumentFragment();
+  for (const it of shown){
+    const d = el('div',{class:'thumb' + (selected.has(it.id) ? ' sel' : ''), title:it.path});
+    d.dataset.id = it.id;
+    d.innerHTML = `<div class="im">${it.thumb ? `<img src="${it.thumb}" alt="">` : '<span class="dim">…</span>'}</div><div class="nm">${esc(it.name)}</div><div class="sz">${it.w ? it.w + '×' + it.h + ' · ' : ''}${Moa.fmtBytes(it.size)}</div>`;
+    frag.append(d);
+  }
+  g.append(frag);
+  $('#stCount').textContent = `${shown.length}장` + (curDir ? ' · ' + curDir.replace(/\/$/, '') : '');
+  observeThumbs(); updateSel();
+}
+let io;
+function observeThumbs(){
+  if (io) io.disconnect();
+  io = new IntersectionObserver(ents => ents.forEach(en => { if (en.isIntersecting){ const it = byId(+en.target.dataset.id); if (it && !it.thumb && !it.thumbing) queueThumb(it); io.unobserve(en.target); } }), {root:$('#grid'), rootMargin:'300px'});
+  $('#grid').querySelectorAll('.thumb').forEach(t => io.observe(t));
+}
+const byId = id => all.find(x => x.id === id);
+const tq = []; let tActive = 0;
+function queueThumb(it){ it.thumbing = true; tq.push(it); pumpThumb(); }
+function pumpThumb(){
+  while (tActive < 4 && tq.length){
+    const it = tq.shift(); tActive++;
+    makeThumb(it).catch(() => { it.thumb = 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10"><text x="5" y="6" font-size="2" text-anchor="middle" fill="#888">열 수 없음</text></svg>'); })
+      .finally(() => { tActive--; const d = $('#grid').querySelector(`.thumb[data-id="${it.id}"]`); if (d){ d.querySelector('.im').innerHTML = `<img src="${it.thumb}" alt="">`; d.querySelector('.sz').textContent = (it.w ? it.w + '×' + it.h + ' · ' : '') + Moa.fmtBytes(it.size); } if (focusId === it.id) renderInfo(); pumpThumb(); });
+  }
+}
+async function makeThumb(it){
+  const img = await Moa.loadImage(URL.createObjectURL(it.file));
+  it.w = img.naturalWidth; it.h = img.naturalHeight;
+  const s = Math.min(1, 320 / Math.max(it.w, it.h));
+  const c = MoaImg.resizeCanvas(MoaImg.canvasFrom(img), Math.max(1, it.w * s), Math.max(1, it.h * s));
+  URL.revokeObjectURL(img.src);
+  it.thumbCanvas = c;
+  it.thumb = URL.createObjectURL(await Moa.canvasToBlob(c, 'image/jpeg', .85));
+}
+$('#thSize').oninput = e => { S.th = +e.target.value; $('#grid').style.setProperty('--th', S.th + 'px'); saveS(); };
+$('#search').oninput = e => { filterText = e.target.value.trim(); renderGrid(); };
+$('#bSort').onclick = e => Moa.menu(e.clientX, e.clientY + 10, Object.entries(SORTS).map(([k, v]) => ({label:(S.sort === k ? '● ' : '') + v, onClick:()=>{ S.sortD = S.sort === k ? -S.sortD : 1; S.sort = k; saveS(); renderGrid(); }})).concat(['-', {label:'오름/내림 바꾸기', onClick:()=>{ S.sortD = -S.sortD; saveS(); renderGrid(); }}]));
+$('#grid').addEventListener('click', e => {
+  const d = e.target.closest('.thumb'); if (!d){ selected.clear(); updateSel(); return; }
+  const id = +d.dataset.id, ids = shown.map(x => x.id);
+  if (e.shiftKey && lastSel){ const a = ids.indexOf(lastSel), b = ids.indexOf(id); if (!e.ctrlKey) selected.clear(); for (let i = Math.min(a,b); i <= Math.max(a,b); i++) selected.add(ids[i]); }
+  else if (e.ctrlKey || e.metaKey){ selected.has(id) ? selected.delete(id) : selected.add(id); lastSel = id; }
+  else { selected.clear(); selected.add(id); lastSel = id; }
+  focusId = id; updateSel(); renderInfo();
+});
+$('#grid').addEventListener('dblclick', e => { const d = e.target.closest('.thumb'); if (d) openViewer(byId(+d.dataset.id)); });
+$('#grid').addEventListener('contextmenu', e => {
+  const d = e.target.closest('.thumb'); if (!d) return; e.preventDefault();
+  const id = +d.dataset.id; if (!selected.has(id)){ selected.clear(); selected.add(id); lastSel = id; focusId = id; updateSel(); renderInfo(); }
+  Moa.menu(e.clientX, e.clientY, [
+    {label:'크게 보기', hint:'Enter', onClick:()=>openViewer(byId(id))}, {label:'편집', hint:'E', onClick:()=>openEditor(byId(id))},
+    {label:'슬라이드 쇼', hint:'F5', onClick:()=>openViewer(byId(id), true)},
+    '-', {label:'왼쪽으로 회전', onClick:()=>quickRotate(-90)}, {label:'오른쪽으로 회전', onClick:()=>quickRotate(90)},
+    '-', {label:'일괄 변환…', onClick:batchDialog}, {label:'사진 합치기…', onClick:combineDialog}, {label:'GIF 만들기…', onClick:gifDialog},
+    '-', {label:'클립보드로 복사', hint:'Ctrl+C', onClick:copySel}, {label:'다른 이름으로 저장…', onClick:()=>Moa.saveAs(byId(id).file, byId(id).name)},
+    {label:'이름 바꾸기', hint:'F2', onClick:renameSel}, {label:'삭제', hint:'Del', onClick:deleteSel}, '-', {label:'속성', onClick:()=>propsDialog(byId(id))}]);
+});
+function updateSel(){
+  $('#grid').querySelectorAll('.thumb').forEach(t => t.classList.toggle('sel', selected.has(+t.dataset.id)));
+  const sel = all.filter(x => selected.has(x.id));
+  $('#stSel').textContent = sel.length ? `선택 ${sel.length}장 (${Moa.fmtBytes(sel.reduce((a,x) => a + x.size, 0))})` : '';
+}
+const selItems = () => { const s = shown.filter(x => selected.has(x.id)); return s.length ? s : (focusId && byId(focusId) ? [byId(focusId)] : []); };
+function setStatus(s){ $('#status').textContent = s; }
+
+/* 정보 패널 */
+async function renderInfo(){
+  const box = $('#info'); const it = byId(focusId);
+  if (!it){ box.innerHTML = '<div class="dim">사진을 선택하면 정보가 표시됩니다.</div>'; return; }
+  if (it.exif === undefined){ it.exif = await MoaImg.readExif(it.file); }
+  const rows = [['파일 이름', it.name], ['크기', it.w ? `${it.w} × ${it.h} 픽셀` + (it.w ? ` (${(it.w*it.h/1e6).toFixed(1)}MP)` : '') : '-'], ['파일 크기', Moa.fmtBytes(it.size)], ['형식', (it.file.type || it.name.split('.').pop()).replace('image/','').toUpperCase()], ['수정한 날짜', Moa.fmtDate(it.mtime)], ['위치', it.dir]].concat(MoaImg.exifRows(it.exif));
+  box.innerHTML = '';
+  box.append(it.thumb ? el('img',{src:it.thumb}) : el('div'), el('canvas',{id:'hist', width:256, height:80}), el('dl',{class:'kv', html: rows.map(([k,v]) => `<dt>${esc(k)}</dt><dd>${esc(v)}</dd>`).join('')}));
+  if (it.exif?.gps) box.append(el('a',{href:`https://www.openstreetmap.org/?mlat=${it.exif.gps.lat}&mlon=${it.exif.gps.lon}#map=16/${it.exif.gps.lat}/${it.exif.gps.lon}`, target:'_blank', style:{display:'block', marginTop:'8px', color:'var(--accent)'}}, '🗺 지도에서 촬영 위치 보기'));
+  if (it.thumbCanvas) drawHist($('#hist'), MoaImg.histogram(it.thumbCanvas));
+}
+function drawHist(cv, h){
+  const g = cv.getContext('2d'); g.clearRect(0,0,256,80);
+  const max = Math.max(...h[3]) || 1;
+  [['rgba(255,80,80,.55)',0],['rgba(80,220,80,.55)',1],['rgba(80,140,255,.55)',2]].forEach(([c, i]) => { g.fillStyle = c; for (let x = 0; x < 256; x++){ const v = Math.min(80, h[i][x] / max * 80); g.fillRect(x, 80 - v, 1, v); } });
+}
+
+/* ================= 뷰어 ================= */
+let V = null;
+function openViewer(it, slideshow){
+  computeShown();
+  it = it || byId(focusId) || selItems()[0] || shown[0];
+  if (!it) return toast('볼 사진이 없습니다');
+  const list = shown.includes(it) ? shown : all;
+  const root = el('div', {class:'viewer' + (S.viewerBg === 'light' ? ' light' : '')});
+  const bar = el('div',{class:'vbar'});
+  const B = (ic, title, fn, extra='') => { const b = el('button',{class:'ibtn', title, html:icon(ic) + extra, onclick:fn}); bar.append(b); return b; };
+  const ttl = el('span',{class:'ttl'}), idxTxt = el('span',{class:'dim'}), zoomTxt = el('span',{class:'dim', style:{minWidth:'48px', textAlign:'right'}});
+  B('x', '닫기 (Esc)', () => closeViewer());
+  bar.append(ttl, idxTxt, el('span',{class:'grow'}));
+  B('prev', '이전 (←, PageUp)', () => go(-1)); B('next', '다음 (→, Space)', () => go(1));
+  bar.append(el('span',{style:{width:'10px'}}));
+  B('zoomOut', '축소 (-)', () => zoomBy(1/1.25)); bar.append(zoomTxt); B('zoomIn', '확대 (+)', () => zoomBy(1.25));
+  B('fit', '화면에 맞춤 (*)', () => fit()); const oneBtn = B('search', '원본 크기 (/)', () => setZoom(1));
+  B('rotL', '왼쪽 회전 (보기만, L)', () => { V.rot = (V.rot + 270) % 360; fit(); }); B('rotR', '오른쪽 회전 (보기만, R)', () => { V.rot = (V.rot + 90) % 360; fit(); });
+  B('flipH', '좌우 반전 (H)', () => { V.flip = !V.flip; apply(); });
+  bar.append(el('span',{style:{width:'10px'}}));
+  B('info', '사진 정보 (I)', () => { V.showInfo = !V.showInfo; renderVInfo(); });
+  const ssBtn = B('slideshow', '슬라이드 쇼 (F5)', () => toggleSlide());
+  B('edit', '편집 (E)', () => { const cur = V.list[V.i]; closeViewer(); openEditor(cur); });
+  B('copy', '복사 (Ctrl+C)', () => copyItem(V.list[V.i]));
+  B('trash', '삭제 (Delete)', () => deleteItems([V.list[V.i]]).then(ok => { if (ok){ V.list = V.list.filter(x => all.includes(x)); if (!V.list.length) closeViewer(); else { V.i = Math.min(V.i, V.list.length - 1); show(); } } }));
+  B('palette', '배경 밝게/어둡게', () => { S.viewerBg = S.viewerBg === 'light' ? 'dark' : 'light'; saveS(); root.classList.toggle('light', S.viewerBg === 'light'); });
+  B('full', '전체 화면 (F)', () => toggleFull());
+  const stage = el('div',{class:'vstage'}), img = el('img',{alt:'', draggable:false}), zoomTag = el('div',{class:'zoomtag'});
+  const vinfo = el('div',{class:'vinfo hidden'});
+  stage.append(img, el('button',{class:'vnav l', onclick:e => { e.stopPropagation(); go(-1); }}, '‹'), el('button',{class:'vnav r', onclick:e => { e.stopPropagation(); go(1); }}, '›'), vinfo, zoomTag);
+  const film = el('div',{class:'film'});
+  root.append(bar, stage, film); document.body.append(root);
+  V = {root, stage, img, list, i: list.indexOf(it), z:1, x:0, y:0, rot:0, flip:false, showInfo:false, slide:null, fitted:true};
+  list.forEach((x, k) => { const t = el('img',{src: x.thumb || '', title:x.name, loading:'lazy'}); t.onclick = () => { V.i = k; show(); }; film.append(t); if (!x.thumb && !x.thumbing) queueThumb(x); });
+  function show(){
+    const cur = V.list[V.i]; if (!cur) return;
+    if (V.url) URL.revokeObjectURL(V.url);
+    V.url = URL.createObjectURL(cur.file);
+    img.classList.add('fade'); img.style.opacity = 0;
+    const tmp = new Image(); tmp.onload = () => { img.src = V.url; cur.w = tmp.naturalWidth; cur.h = tmp.naturalHeight; V.rot = 0; V.flip = false; fit(); requestAnimationFrame(() => { img.style.opacity = 1; }); renderVInfo(); }; tmp.onerror = () => { ttl.textContent = cur.name + ' (열 수 없음)'; }; tmp.src = V.url;
+    ttl.textContent = cur.name; idxTxt.textContent = `${V.i + 1} / ${V.list.length}`;
+    film.querySelectorAll('img').forEach((t, k) => { t.classList.toggle('cur', k === V.i); if (V.list[k].thumb && !t.src.startsWith('blob')) t.src = V.list[k].thumb; });
+    film.children[V.i]?.scrollIntoView({inline:'center', block:'nearest'});
+    focusId = cur.id; selected.clear(); selected.add(cur.id);
+    // 다음 사진 미리 읽기
+    const nx = V.list[(V.i + 1) % V.list.length]; if (nx && nx !== cur){ const pre = new Image(); const u = URL.createObjectURL(nx.file); pre.onload = () => URL.revokeObjectURL(u); pre.src = u; }
+  }
+  V.show = show;
+  function dims(){ const c = V.list[V.i]; const r = V.rot % 180 !== 0; return {w: r ? c.h : c.w, h: r ? c.w : c.h}; }
+  function fit(){ const {w, h} = dims(); const sw = stage.clientWidth, sh = stage.clientHeight; let z = Math.min(sw / w, sh / h); if (S.fitMode === 'shrink') z = Math.min(1, z); V.z = z || 1; V.x = (sw - w * V.z) / 2; V.y = (sh - h * V.z) / 2; V.fitted = true; apply(); }
+  function setZoom(z, cx, cy){ const sw = stage.clientWidth, sh = stage.clientHeight; cx = cx ?? sw / 2; cy = cy ?? sh / 2; z = Math.max(0.02, Math.min(32, z)); V.x = cx - (cx - V.x) * z / V.z; V.y = cy - (cy - V.y) * z / V.z; V.z = z; V.fitted = false; apply(); }
+  function zoomBy(f, cx, cy){ setZoom(V.z * f, cx, cy); }
+  function apply(){
+    const c = V.list[V.i]; const {w, h} = dims();
+    // 회전·반전을 고려한 변환 (이미지 중심 기준)
+    img.style.width = c.w + 'px'; img.style.height = c.h + 'px';
+    img.style.transform = `translate(${V.x}px,${V.y}px) scale(${V.z}) translate(${w/2}px,${h/2}px) rotate(${V.rot}deg) scaleX(${V.flip ? -1 : 1}) translate(${-c.w/2}px,${-c.h/2}px)`;
+    img.classList.toggle('pixel', V.z > 3);
+    zoomTxt.textContent = Math.round(V.z * 100) + '%';
+    zoomTag.textContent = Math.round(V.z * 100) + '%'; zoomTag.style.opacity = 1; clearTimeout(V.zt); V.zt = setTimeout(() => zoomTag.style.opacity = 0, 700);
+  }
+  function go(d){ if (!V.list.length) return; let n = V.i + d; if (n < 0) n = V.list.length - 1; if (n >= V.list.length){ if (V.slide && !S.slideLoop){ toggleSlide(); return; } n = 0; } V.i = n; show(); }
+  V.go = go; V.fit = fit; V.zoomBy = zoomBy; V.setZoom = setZoom;
+  function renderVInfo(){
+    vinfo.classList.toggle('hidden', !V.showInfo); if (!V.showInfo) return;
+    const c = V.list[V.i];
+    const draw = x => { vinfo.innerHTML = `<b>${esc(c.name)}</b><dl style="margin-top:6px">` + [['크기', c.w + ' × ' + c.h], ['파일', Moa.fmtBytes(c.size)], ['날짜', Moa.fmtDate(c.mtime)]].concat(MoaImg.exifRows(x)).map(([k,v]) => `<dt>${esc(k)}</dt><dd>${esc(v)}</dd>`).join('') + '</dl>'; };
+    if (c.exif === undefined) MoaImg.readExif(c.file).then(x => { c.exif = x; draw(x); }); else draw(c.exif);
+  }
+  function toggleSlide(){
+    if (V.slide){ clearInterval(V.slide); V.slide = null; root.classList.remove('slideshow'); ssBtn.classList.remove('on'); toast('슬라이드 쇼 정지'); return; }
+    V.slide = setInterval(() => go(1), S.slideSec * 1000); root.classList.add('slideshow'); ssBtn.classList.add('on'); toast(`슬라이드 쇼 (${S.slideSec}초 간격) · Space 일시정지 · Esc 끝내기`);
+  }
+  V.toggleSlide = toggleSlide;
+  function toggleFull(){ if (document.fullscreenElement) document.exitFullscreen(); else root.requestFullscreen().catch(()=>{}); setTimeout(() => { if (V && V.fitted) fit(); }, 300); }
+  V.toggleFull = toggleFull;
+  // 마우스
+  stage.addEventListener('wheel', e => { e.preventDefault(); if (e.ctrlKey || !S.wheelNav){ const r = stage.getBoundingClientRect(); zoomBy(e.deltaY < 0 ? 1.15 : 1/1.15, e.clientX - r.left, e.clientY - r.top); } else go(e.deltaY > 0 ? 1 : -1); }, {passive:false});
+  let drag = null;
+  stage.addEventListener('mousedown', e => { if (e.button !== 0 || e.target.closest('.vnav')) return; drag = {x:e.clientX, y:e.clientY, vx:V.x, vy:V.y, moved:false}; stage.classList.add('drag'); });
+  window.addEventListener('mousemove', V.mm = e => { if (!drag) return; const dx = e.clientX - drag.x, dy = e.clientY - drag.y; if (Math.abs(dx) + Math.abs(dy) > 3) drag.moved = true; V.x = drag.vx + dx; V.y = drag.vy + dy; V.fitted = false; apply(); });
+  window.addEventListener('mouseup', V.mu = () => { drag = null; stage.classList.remove('drag'); });
+  stage.addEventListener('dblclick', e => { if (e.target.closest('.vnav')) return; if (V.fitted){ const r = stage.getBoundingClientRect(); setZoom(1, e.clientX - r.left, e.clientY - r.top); } else fit(); });
+  // 터치(스와이프)
+  let tx = null; stage.addEventListener('touchstart', e => { tx = e.touches[0].clientX; }, {passive:true}); stage.addEventListener('touchend', e => { if (tx == null) return; const dx = e.changedTouches[0].clientX - tx; if (Math.abs(dx) > 60 && V.fitted) go(dx < 0 ? 1 : -1); tx = null; });
+  window.addEventListener('resize', V.rs = () => { if (V && V.fitted) fit(); });
+  show();
+  if (slideshow) setTimeout(() => { toggleFull(); toggleSlide(); }, 100);
+}
+function closeViewer(){ if (!V) return; if (V.slide) clearInterval(V.slide); if (document.fullscreenElement) document.exitFullscreen(); window.removeEventListener('mousemove', V.mm); window.removeEventListener('mouseup', V.mu); window.removeEventListener('resize', V.rs); if (V.url) URL.revokeObjectURL(V.url); V.root.remove(); V = null; renderGrid(); renderInfo(); }
+
+/* ================= 편집기 ================= */
+let E = null;
+async function openEditor(it){
+  it = it || byId(focusId) || selItems()[0];
+  if (!it) return toast('편집할 사진을 선택하세요');
+  const img = await Moa.loadImage(URL.createObjectURL(it.file)).catch(() => null);
+  if (!img) return Moa.alert('이 사진을 열 수 없습니다.');
+  const base = MoaImg.canvasFrom(img); URL.revokeObjectURL(img.src);
+  const root = el('div',{class:'editor'});
+  const top = el('div',{class:'moa-title'}, el('div',{class:'moa-logo'}, 'C'), el('h1',null,'편집: ' + it.name), el('span',{class:'sub', id:'eDim'}), el('span',{class:'grow'}));
+  const tbar = el('div',{class:'moa-toolbar'});
+  const tools = el('div',{class:'etools'}), stage = el('div',{class:'estage'}), opts = el('div',{class:'eopts'});
+  const cv = el('canvas'); const ov = el('canvas',{class:'overlay'}); stage.append(cv, ov);
+  root.append(top, tbar, el('div',{class:'ebody'}, tools, stage, opts)); document.body.append(root);
+  E = {it, root, cv, ov, stage, opts, work: base, orig: MoaImg.cloneCanvas(base), hist:[], fut:[], tool:null, zoom:1, color:'#ff3b30', size:6, preview:null};
+  Moa.toolbar(tbar, [
+    {icon:'undo', label:'실행 취소', title:'실행 취소 (Ctrl+Z)', onClick:()=>undo()}, {icon:'redo', label:'다시 실행', title:'다시 실행 (Ctrl+Y)', onClick:()=>redo()},
+    {icon:'refresh', label:'원래대로', onClick:()=>{ commit(MoaImg.cloneCanvas(E.orig)); toast('원본으로 되돌렸습니다'); }}, '|',
+    {icon:'zoomOut', label:'축소', onClick:()=>setEZoom(E.zoom / 1.25)}, {icon:'fit', label:'맞춤', onClick:()=>fitE()}, {icon:'zoomIn', label:'확대', onClick:()=>setEZoom(E.zoom * 1.25)}, '|',
+    {icon:'save', label:'저장', title:'원본에 덮어쓰기 (Ctrl+S)', onClick:()=>saveEdit(false)}, {icon:'save', label:'다른 이름 저장', title:'다른 이름/형식으로 저장 (Ctrl+Shift+S)', onClick:()=>saveEdit(true)},
+    {icon:'copy', label:'복사', title:'클립보드로 복사', onClick:async ()=>{ await copyCanvas(E.work); }}, '|',
+    {icon:'x', label:'닫기', title:'편집 끝내기 (Esc)', onClick:()=>closeEditor()}]);
+  const T = [['crop','자르기','crop'],['resize','크기','resize'],['rotate','회전','rotR'],['adjust','보정','adjust'],['filter','효과','star'],['mosaic','모자이크','mosaic'],['text','글자','text'],['draw','그리기','pen'],['shape','도형','rect'],['frame','테두리','image']];
+  T.forEach(([k, label, ic]) => { const b = el('button',{class:'tb', html:icon(ic) + `<span>${label}</span>`, onclick:()=>selectTool(k)}); b.dataset.k = k; tools.append(b); });
+  draw(); setTimeout(fitE, 30); selectTool('adjust');
+  // 캔버스 위 마우스 처리
+  let down = null;
+  const pos = e => { const r = cv.getBoundingClientRect(); return {x:(e.clientX - r.left) / r.width * E.work.width, y:(e.clientY - r.top) / r.height * E.work.height}; };
+  ov.style.pointerEvents = 'none';
+  cv.addEventListener('mousedown', e => { if (!E.tool || !E.toolDown) return; down = pos(e); E.toolDown(down, e); });
+  window.addEventListener('mousemove', E.mm = e => { if (down && E.toolMove) E.toolMove(pos(e), down, e); });
+  window.addEventListener('mouseup', E.mu = e => { if (down && E.toolUp) E.toolUp(pos(e), down, e); down = null; });
+  stage.addEventListener('wheel', e => { if (e.ctrlKey){ e.preventDefault(); setEZoom(E.zoom * (e.deltaY < 0 ? 1.1 : 1/1.1)); } }, {passive:false});
+}
+function draw(){
+  const src = E.preview || E.work;
+  E.cv.width = src.width; E.cv.height = src.height; E.cv.getContext('2d').drawImage(src, 0, 0);
+  E.cv.style.width = src.width * E.zoom + 'px'; E.cv.style.height = src.height * E.zoom + 'px';
+  syncOv(); $('#eDim').textContent = `${E.work.width} × ${E.work.height}`;
+}
+function syncOv(){ const r = E.cv.getBoundingClientRect(), sr = E.stage.getBoundingClientRect(); E.ov.width = E.work.width; E.ov.height = E.work.height; Object.assign(E.ov.style, {left:(r.left - sr.left + E.stage.scrollLeft) + 'px', top:(r.top - sr.top + E.stage.scrollTop) + 'px', width:r.width + 'px', height:r.height + 'px'}); }
+function setEZoom(z){ E.zoom = Math.max(.05, Math.min(8, z)); draw(); }
+function fitE(){ const sw = E.stage.clientWidth - 40, sh = E.stage.clientHeight - 40; E.zoom = Math.min(1, sw / E.work.width, sh / E.work.height); draw(); }
+function commit(newCanvas){ E.hist.push(E.work); if (E.hist.length > 25) E.hist.shift(); E.fut = []; E.work = newCanvas; E.preview = null; E.dirty = true; draw(); if (E.tool) selectTool(E.tool, true); }
+function undo(){ if (!E.hist.length) return toast('더 이상 취소할 수 없습니다'); E.fut.push(E.work); E.work = E.hist.pop(); E.preview = null; draw(); if (E.tool) selectTool(E.tool, true); }
+function redo(){ if (!E.fut.length) return; E.hist.push(E.work); E.work = E.fut.pop(); E.preview = null; draw(); if (E.tool) selectTool(E.tool, true); }
+function clearOv(){ const g = E.ov.getContext('2d'); g.clearRect(0, 0, E.ov.width, E.ov.height); return g; }
+function closeEditor(force){
+  if (!E) return;
+  if (!force && E.dirty) return Moa.confirm('편집한 내용을 저장하지 않고 닫을까요?').then(ok => ok && closeEditor(true));
+  window.removeEventListener('mousemove', E.mm); window.removeEventListener('mouseup', E.mu); E.root.remove(); E = null;
+}
+function slider(label, min, max, val, step, on, fmt = v => v){
+  const v = el('span',{class:'val'}, fmt(val)); const r = el('input',{type:'range', min, max, step, value:val});
+  r.oninput = () => { v.textContent = fmt(+r.value); on(+r.value); }; r.ondblclick = () => { r.value = val; r.oninput(); };
+  return el('label',{class:'sl'}, el('span',null,label), r, v);
+}
+const COLORS = ['#ffffff','#000000','#ff3b30','#ff9500','#ffcc00','#34c759','#00c7be','#007aff','#5856d6','#af52de','#ff2d55','#8e8e93'];
+function colorPicker(get, set){
+  const inp = el('input',{type:'color', value:get(), oninput:e => set(e.target.value)});
+  const sw = el('div',{class:'swatches'}, ...COLORS.map(c => el('button',{style:{background:c}, title:c, onclick:()=>{ set(c); inp.value = c; }})));
+  const pick = window.EyeDropper ? el('button',{class:'btn sm', onclick: async ()=>{ try { const r = await new EyeDropper().open(); set(r.sRGBHex); inp.value = r.sRGBHex; } catch(e){} }}, '스포이트') : null;
+  return el('div',{class:'row', style:{flexWrap:'wrap'}}, inp, sw, pick);
+}
+function selectTool(k, keep){
+  E.tool = k; E.toolDown = E.toolMove = E.toolUp = null; E.preview = null; if (!keep) draw(); clearOv();
+  E.root.querySelectorAll('.etools .tb').forEach(b => b.classList.toggle('on', b.dataset.k === k));
+  const o = E.opts; o.innerHTML = ''; E.cv.style.cursor = 'default';
+  const W = E.work.width, H = E.work.height;
+  const applyBtn = (label, fn) => el('button',{class:'btn primary', style:{width:'100%', marginTop:'10px'}, onclick:fn}, label);
+  if (k === 'crop'){
+    o.append(el('h3',null,'자르기'), el('div',{class:'dim'}, '사진 위에서 끌어서 영역을 고르세요.'));
+    let ratio = 0, rect = null;
+    const ratios = [['자유',0],['1:1',1],['4:3',4/3],['3:4',3/4],['16:9',16/9],['9:16',9/16],['3:2',3/2],['2:3',2/3]];
+    const rr = el('div',{class:'row', style:{flexWrap:'wrap'}}, ...ratios.map(([n, v]) => el('button',{class:'btn sm' + (v === ratio ? ' primary' : ''), onclick:e => { ratio = v; rr.querySelectorAll('button').forEach(b => b.classList.remove('primary')); e.target.classList.add('primary'); if (rect) fix(rect, rect); drawR(); }}, n)));
+    const info = el('div',{class:'dim', style:{marginTop:'8px'}});
+    o.append(rr, info, applyBtn('자르기 적용 (Enter)', () => { if (!rect || rect.w < 2 || rect.h < 2) return toast('영역을 먼저 고르세요'); const c = document.createElement('canvas'); c.width = Math.round(rect.w); c.height = Math.round(rect.h); c.getContext('2d').drawImage(E.work, -Math.round(rect.x), -Math.round(rect.y)); commit(c); }));
+    const fix = (r) => { if (ratio){ r.h = r.w / ratio * Math.sign(r.h || 1) * Math.sign(r.w || 1); } return r; };
+    const norm = r => { let {x, y, w, h} = r; if (w < 0){ x += w; w = -w; } if (h < 0){ y += h; h = -h; } x = Math.max(0, x); y = Math.max(0, y); w = Math.min(W - x, w); h = Math.min(H - y, h); return {x, y, w, h}; };
+    const drawR = () => { const g = clearOv(); if (!rect) return; g.fillStyle = 'rgba(0,0,0,.5)'; g.fillRect(0, 0, W, H); g.clearRect(rect.x, rect.y, rect.w, rect.h); g.strokeStyle = '#fff'; g.lineWidth = Math.max(1, 1.5 / E.zoom); g.setLineDash([6/E.zoom, 4/E.zoom]); g.strokeRect(rect.x, rect.y, rect.w, rect.h); g.setLineDash([]); g.strokeStyle = 'rgba(255,255,255,.35)'; for (let i = 1; i < 3; i++){ g.beginPath(); g.moveTo(rect.x + rect.w*i/3, rect.y); g.lineTo(rect.x + rect.w*i/3, rect.y + rect.h); g.moveTo(rect.x, rect.y + rect.h*i/3); g.lineTo(rect.x + rect.w, rect.y + rect.h*i/3); g.stroke(); } info.textContent = `${Math.round(rect.w)} × ${Math.round(rect.h)} 픽셀`; };
+    E.cv.style.cursor = 'crosshair';
+    E.toolDown = p => { rect = {x:p.x, y:p.y, w:0, h:0}; };
+    E.toolMove = (p, s) => { const r = {x:s.x, y:s.y, w:p.x - s.x, h:p.y - s.y}; if (ratio){ r.h = Math.abs(r.w) / ratio * Math.sign(r.h || 1); } rect = norm(r); drawR(); };
+    E.enter = () => o.querySelector('.btn.primary:last-child').click();
+  } else if (k === 'resize'){
+    let w = W, h = H, keep = true;
+    const iw = el('input',{type:'number', value:w, min:1, style:{width:'90px'}}), ih = el('input',{type:'number', value:h, min:1, style:{width:'90px'}}), ip = el('input',{type:'number', value:100, min:1, max:1000, style:{width:'70px'}});
+    const kc = el('input',{type:'checkbox', checked:true, onchange:e => keep = e.target.checked});
+    iw.oninput = () => { w = +iw.value; if (keep){ h = Math.round(w * H / W); ih.value = h; } ip.value = Math.round(w / W * 100); };
+    ih.oninput = () => { h = +ih.value; if (keep){ w = Math.round(h * W / H); iw.value = w; } ip.value = Math.round(h / H * 100); };
+    ip.oninput = () => { w = Math.round(W * ip.value / 100); h = Math.round(H * ip.value / 100); iw.value = w; ih.value = h; };
+    o.append(el('h3',null,'크기 바꾸기'), el('div',{class:'dim'}, `현재 ${W} × ${H}`),
+      el('div',{class:'row'}, el('span',{style:{width:'40px'}},'가로'), iw, 'px'), el('div',{class:'row'}, el('span',{style:{width:'40px'}},'세로'), ih, 'px'), el('div',{class:'row'}, el('span',{style:{width:'40px'}},'비율'), ip, '%'),
+      el('label',{class:'chk'}, kc, '가로·세로 비율 유지'),
+      el('div',{class:'row', style:{flexWrap:'wrap', marginTop:'10px'}}, ...[[25,'25%'],[50,'50%'],[75,'75%'],[200,'200%']].map(([p, n]) => el('button',{class:'btn sm', onclick:()=>{ ip.value = p; ip.oninput(); }}, n)), ...[[1920,'FHD 가로'],[1280,'HD 가로'],[800,'800px']].map(([px, n]) => el('button',{class:'btn sm', onclick:()=>{ iw.value = px; iw.oninput(); }}, n))),
+      applyBtn('크기 적용', () => { if (w < 1 || h < 1 || w > 16000 || h > 16000) return toast('크기가 올바르지 않습니다'); commit(MoaImg.resizeCanvas(E.work, w, h)); }));
+  } else if (k === 'rotate'){
+    let ang = 0;
+    o.append(el('h3',null,'회전 · 반전'),
+      el('div',{class:'row', style:{flexWrap:'wrap'}},
+        el('button',{class:'btn', onclick:()=>commit(MoaImg.rotateCanvas(E.work, -90))}, '↺ 왼쪽 90°'), el('button',{class:'btn', onclick:()=>commit(MoaImg.rotateCanvas(E.work, 90))}, '↻ 오른쪽 90°'),
+        el('button',{class:'btn', onclick:()=>commit(MoaImg.rotateCanvas(E.work, 180))}, '180°'),
+        el('button',{class:'btn', onclick:()=>commit(MoaImg.flipCanvas(E.work, true))}, '⇋ 좌우 반전'), el('button',{class:'btn', onclick:()=>commit(MoaImg.flipCanvas(E.work, false))}, '⇵ 상하 반전')),
+      el('div',{class:'dim', style:{marginTop:'14px'}}, '수평 맞추기 (임의 각도)'),
+      slider('각도', -45, 45, 0, .5, v => { ang = v; E.preview = MoaImg.rotateCanvas(E.work, v); draw(); }, v => v + '°'),
+      el('label',{class:'chk'}, el('input',{type:'checkbox', id:'rCrop', checked:true}), '빈 모서리 잘라내기'),
+      applyBtn('각도 적용', () => { if (!ang) return; let c = MoaImg.rotateCanvas(E.work, ang); if ($('#rCrop', o)?.checked ?? o.querySelector('#rCrop').checked){ const r = Math.abs(ang) * Math.PI / 180; const s = Math.sin(r), co = Math.cos(r); const w0 = E.work.width, h0 = E.work.height; const k2 = Math.min(w0 / (w0*co + h0*s), h0 / (w0*s + h0*co)); const cw = Math.round(w0 * k2), ch = Math.round(h0 * k2); const t = document.createElement('canvas'); t.width = cw; t.height = ch; t.getContext('2d').drawImage(c, -(c.width - cw)/2, -(c.height - ch)/2); c = t; } commit(c); }));
+  } else if (k === 'adjust'){
+    const a = {brightness:100, contrast:100, saturate:100, hue:0, temp:0, sharp:0, gamma:100};
+    const prev = () => { const c = document.createElement('canvas'); c.width = W; c.height = H; const g = c.getContext('2d'); g.filter = `brightness(${a.brightness}%) contrast(${a.contrast}%) saturate(${a.saturate}%) hue-rotate(${a.hue}deg)`; g.drawImage(E.work, 0, 0); g.filter = 'none';
+      if (a.temp){ g.globalCompositeOperation = 'soft-light'; g.fillStyle = a.temp > 0 ? `rgba(255,140,0,${a.temp/100*.6})` : `rgba(0,120,255,${-a.temp/100*.6})`; g.fillRect(0, 0, W, H); g.globalCompositeOperation = 'source-over'; }
+      if (a.gamma !== 100){ const img = g.getImageData(0, 0, W, H), d = img.data, gm = 100 / a.gamma, lut = new Uint8ClampedArray(256); for (let i = 0; i < 256; i++) lut[i] = 255 * Math.pow(i/255, gm); for (let i = 0; i < d.length; i += 4){ d[i] = lut[d[i]]; d[i+1] = lut[d[i+1]]; d[i+2] = lut[d[i+2]]; } g.putImageData(img, 0, 0); }
+      if (a.sharp) MoaImg.sharpen(c, a.sharp / 100);
+      return c; };
+    let t; const upd = () => { clearTimeout(t); t = setTimeout(() => { E.preview = prev(); draw(); }, W * H > 4e6 ? 120 : 30); };
+    o.append(el('h3',null,'색상 보정'),
+      el('button',{class:'btn', style:{width:'100%'}, onclick:()=>{ const c = MoaImg.cloneCanvas(E.work); MoaImg.autoLevel(c); commit(c); toast('자동 보정했습니다'); }}, '✨ 자동 보정 (레벨)'),
+      slider('밝기', 0, 200, 100, 1, v => { a.brightness = v; upd(); }, v => v - 100), slider('대비', 0, 200, 100, 1, v => { a.contrast = v; upd(); }, v => v - 100),
+      slider('채도', 0, 200, 100, 1, v => { a.saturate = v; upd(); }, v => v - 100), slider('감마', 30, 300, 100, 1, v => { a.gamma = v; upd(); }, v => (v/100).toFixed(2)),
+      slider('색조', -180, 180, 0, 1, v => { a.hue = v; upd(); }, v => v + '°'), slider('색온도', -100, 100, 0, 1, v => { a.temp = v; upd(); }),
+      slider('선명하게', 0, 200, 0, 5, v => { a.sharp = v; upd(); }),
+      el('div',{class:'dim', style:{fontSize:'11px'}}, '슬라이더를 더블클릭하면 초기값으로 돌아갑니다.'),
+      applyBtn('보정 적용', () => commit(prev())));
+  } else if (k === 'filter'){
+    const F = [['흑백','grayscale(100%)'],['세피아','sepia(90%)'],['반전','invert(100%)'],['흐리게','blur(3px)'],['빈티지','sepia(40%) contrast(110%) brightness(105%) saturate(80%)'],['선명한 색','saturate(160%) contrast(110%)'],['차갑게','hue-rotate(-12deg) saturate(110%) brightness(103%)'],['따뜻하게','sepia(25%) saturate(130%) hue-rotate(-8deg)'],['드라마틱','contrast(150%) saturate(120%) brightness(95%)'],['바랜 사진','contrast(85%) brightness(110%) saturate(70%)']];
+    let strength = 100;
+    const mk = f => { const c = document.createElement('canvas'); c.width = W; c.height = H; const g = c.getContext('2d'); g.drawImage(E.work, 0, 0); g.globalAlpha = strength / 100; g.filter = f; g.drawImage(E.work, 0, 0); return c; };
+    const grid = el('div',{style:{display:'grid', gridTemplateColumns:'1fr 1fr', gap:'6px'}});
+    let chosen = null;
+    F.forEach(([n, f]) => { const b = el('button',{class:'btn sm'}, n); b.onclick = () => { chosen = f; grid.querySelectorAll('button').forEach(x => x.classList.remove('primary')); b.classList.add('primary'); E.preview = mk(f); draw(); }; grid.append(b); });
+    o.append(el('h3',null,'효과'), grid, slider('강도', 0, 100, 100, 5, v => { strength = v; if (chosen){ E.preview = mk(chosen); draw(); } }, v => v + '%'),
+      el('div',{class:'row', style:{flexWrap:'wrap', marginTop:'10px'}},
+        el('button',{class:'btn sm', onclick:()=>{ const c = MoaImg.cloneCanvas(E.work); const g = c.getContext('2d'); const gr = g.createRadialGradient(W/2, H/2, Math.min(W,H)*.3, W/2, H/2, Math.max(W,H)*.75); gr.addColorStop(0,'rgba(0,0,0,0)'); gr.addColorStop(1,'rgba(0,0,0,.65)'); g.fillStyle = gr; g.fillRect(0,0,W,H); commit(c); }}, '비네팅'),
+        el('button',{class:'btn sm', onclick:()=>{ const c = MoaImg.cloneCanvas(E.work); MoaImg.convolve(c, [-2,-1,0,-1,1,1,0,1,2]); commit(c); }}, '엠보스'),
+        el('button',{class:'btn sm', onclick:()=>{ const c = MoaImg.cloneCanvas(E.work); const g = c.getContext('2d'); const d = g.getImageData(0,0,W,H); for (let i = 0; i < d.data.length; i += 4){ const n = (Math.random() - .5) * 40; d.data[i] += n; d.data[i+1] += n; d.data[i+2] += n; } g.putImageData(d, 0, 0); commit(c); }}, '필름 노이즈')),
+      applyBtn('효과 적용', () => { if (!chosen) return toast('효과를 고르세요'); commit(mk(chosen)); }));
+  } else if (k === 'mosaic'){
+    let mode = 'mosaic', bsz = Math.max(8, Math.round(Math.max(W, H) / 60)), brush = false;
+    o.append(el('h3',null,'모자이크 · 흐림'), el('div',{class:'dim'}, '가릴 부분을 끌어서 고르세요. (얼굴, 번호판, 개인정보)'),
+      el('div',{class:'row'}, el('label',{class:'chk'}, el('input',{type:'radio', name:'mm', checked:true, onchange:()=>mode='mosaic'}), '모자이크'), el('label',{class:'chk'}, el('input',{type:'radio', name:'mm', onchange:()=>mode='blur'}), '흐림'), el('label',{class:'chk'}, el('input',{type:'radio', name:'mm', onchange:()=>mode='black'}), '검게 칠하기')),
+      el('label',{class:'chk'}, el('input',{type:'checkbox', onchange:e => brush = e.target.checked}), '붓처럼 문질러서 적용'),
+      slider('강도', 3, 80, bsz, 1, v => bsz = v));
+    E.cv.style.cursor = 'crosshair';
+    const applyR = (x, y, w, h) => { const c = MoaImg.cloneCanvas(E.work); if (mode === 'mosaic') MoaImg.pixelate(c, x, y, w, h, bsz); else if (mode === 'blur') MoaImg.blurRegion(c, x, y, w, h, bsz / 2); else { const g = c.getContext('2d'); g.fillStyle = '#000'; g.fillRect(x, y, w, h); } return c; };
+    let tmp = null;
+    E.toolDown = p => { if (brush){ tmp = MoaImg.cloneCanvas(E.work); } };
+    E.toolMove = (p, s) => { if (brush){ const r = bsz * 1.5; const c = tmp; if (mode === 'mosaic') MoaImg.pixelate(c, p.x - r, p.y - r, r*2, r*2, bsz); else if (mode === 'blur') MoaImg.blurRegion(c, p.x - r, p.y - r, r*2, r*2, bsz/2); else { const g = c.getContext('2d'); g.fillStyle = '#000'; g.fillRect(p.x - r, p.y - r, r*2, r*2); } E.preview = c; draw(); return; } const g = clearOv(); g.strokeStyle = '#ff3b30'; g.lineWidth = 2 / E.zoom; g.setLineDash([6/E.zoom, 4/E.zoom]); g.strokeRect(s.x, s.y, p.x - s.x, p.y - s.y); };
+    E.toolUp = (p, s) => { clearOv(); if (brush){ if (tmp) commit(tmp); tmp = null; return; } const x = Math.min(p.x, s.x), y = Math.min(p.y, s.y), w = Math.abs(p.x - s.x), h = Math.abs(p.y - s.y); if (w > 2 && h > 2) commit(applyR(x, y, w, h)); };
+  } else if (k === 'text'){
+    const t = {text:'HANAI View', size:Math.round(Math.max(W, H) / 18), font:'"Malgun Gothic",sans-serif', bold:true, color:'#ffffff', stroke:'#000000', strokeW:3, shadow:true, x:W/2, y:H/2, align:'center'};
+    const ta = el('textarea',{style:{width:'100%', height:'70px'}}); ta.value = t.text;
+    const fsel = el('select',{style:{width:'100%'}}, ...[['"Malgun Gothic",sans-serif','맑은 고딕'],['"Batang",serif','바탕'],['"Gulim",sans-serif','굴림'],['"Gungsuh",serif','궁서'],['Impact,sans-serif','Impact'],['Georgia,serif','Georgia'],['"Courier New",monospace','Courier']].map(([v, n]) => el('option',{value:v}, n)));
+    const render = () => { const c = MoaImg.cloneCanvas(E.work); const g = c.getContext('2d'); g.font = `${t.bold ? 'bold ' : ''}${t.size}px ${t.font}`; g.textAlign = t.align; g.textBaseline = 'middle'; const lines = t.text.split('\n'); const lh = t.size * 1.25;
+      lines.forEach((ln, i) => { const y = t.y + (i - (lines.length - 1) / 2) * lh; if (t.shadow){ g.shadowColor = 'rgba(0,0,0,.6)'; g.shadowBlur = t.size / 8; g.shadowOffsetX = g.shadowOffsetY = t.size / 20; } if (t.strokeW){ g.lineWidth = t.strokeW * 2; g.strokeStyle = t.stroke; g.lineJoin = 'round'; g.strokeText(ln, t.x, y); } g.shadowColor = 'transparent'; g.fillStyle = t.color; g.fillText(ln, t.x, y); }); return c; };
+    const upd = () => { E.preview = render(); draw(); };
+    ta.oninput = () => { t.text = ta.value; upd(); }; fsel.onchange = () => { t.font = fsel.value; upd(); };
+    o.append(el('h3',null,'글자 넣기'), el('div',{class:'dim'}, '사진을 클릭하거나 끌어서 위치를 정하세요.'), ta, el('div',{style:{height:'6px'}}), fsel,
+      slider('크기', 8, Math.max(200, Math.round(Math.max(W,H)/4)), t.size, 1, v => { t.size = v; upd(); }),
+      el('div',{class:'row'}, el('label',{class:'chk'}, el('input',{type:'checkbox', checked:true, onchange:e => { t.bold = e.target.checked; upd(); }}), '굵게'), el('label',{class:'chk'}, el('input',{type:'checkbox', checked:true, onchange:e => { t.shadow = e.target.checked; upd(); }}), '그림자')),
+      el('div',{class:'dim'}, '글자 색'), colorPicker(() => t.color, v => { t.color = v; upd(); }),
+      el('div',{class:'dim', style:{marginTop:'6px'}}, '외곽선'), colorPicker(() => t.stroke, v => { t.stroke = v; upd(); }), slider('외곽선 두께', 0, 20, t.strokeW, 1, v => { t.strokeW = v; upd(); }),
+      applyBtn('글자 적용', () => commit(render())));
+    E.cv.style.cursor = 'text';
+    E.toolDown = p => { t.x = p.x; t.y = p.y; upd(); }; E.toolMove = p => { t.x = p.x; t.y = p.y; upd(); };
+    upd();
+  } else if (k === 'draw'){
+    let mode = 'pen';
+    o.append(el('h3',null,'그리기'), el('div',{class:'row'}, el('label',{class:'chk'}, el('input',{type:'radio', name:'dm', checked:true, onchange:()=>mode='pen'}), '펜'), el('label',{class:'chk'}, el('input',{type:'radio', name:'dm', onchange:()=>mode='hl'}), '형광펜'), el('label',{class:'chk'}, el('input',{type:'radio', name:'dm', onchange:()=>mode='erase'}), '원본 복원 지우개')),
+      colorPicker(() => E.color, v => E.color = v), slider('굵기', 1, 80, E.size, 1, v => E.size = v));
+    E.cv.style.cursor = 'crosshair';
+    let c, g, last;
+    E.toolDown = p => { c = MoaImg.cloneCanvas(E.work); g = c.getContext('2d'); last = p; g.lineCap = g.lineJoin = 'round'; };
+    E.toolMove = p => { g.lineWidth = mode === 'hl' ? E.size * 3 : E.size; if (mode === 'erase'){ g.save(); g.beginPath(); g.arc(p.x, p.y, E.size, 0, 7); g.clip(); g.drawImage(E.orig.width === c.width && E.orig.height === c.height ? E.orig : E.work, 0, 0); g.restore(); } else { g.strokeStyle = E.color; g.globalAlpha = mode === 'hl' ? .35 : 1; g.globalCompositeOperation = mode === 'hl' ? 'multiply' : 'source-over'; g.beginPath(); g.moveTo(last.x, last.y); g.lineTo(p.x, p.y); g.stroke(); g.globalAlpha = 1; g.globalCompositeOperation = 'source-over'; } last = p; E.preview = c; draw(); };
+    E.toolUp = () => { if (c) commit(c); c = null; };
+  } else if (k === 'shape'){
+    let shape = 'rect', fill = false;
+    o.append(el('h3',null,'도형'), el('div',{class:'row', style:{flexWrap:'wrap'}}, ...[['rect','사각형'],['ellipse','원'],['line','선'],['arrow','화살표']].map(([v, n], i) => el('label',{class:'chk'}, el('input',{type:'radio', name:'sh', checked:i===0, onchange:()=>shape=v}), n))),
+      el('label',{class:'chk'}, el('input',{type:'checkbox', onchange:e => fill = e.target.checked}), '안쪽 채우기'),
+      colorPicker(() => E.color, v => E.color = v), slider('굵기', 1, 60, E.size, 1, v => E.size = v));
+    E.cv.style.cursor = 'crosshair';
+    const paint = (g, s, p) => { g.strokeStyle = g.fillStyle = E.color; g.lineWidth = E.size; g.lineCap = 'round'; g.beginPath();
+      if (shape === 'rect'){ if (fill) g.fillRect(s.x, s.y, p.x - s.x, p.y - s.y); else g.strokeRect(s.x, s.y, p.x - s.x, p.y - s.y); }
+      else if (shape === 'ellipse'){ g.ellipse((s.x + p.x)/2, (s.y + p.y)/2, Math.abs(p.x - s.x)/2, Math.abs(p.y - s.y)/2, 0, 0, 7); fill ? g.fill() : g.stroke(); }
+      else { g.moveTo(s.x, s.y); g.lineTo(p.x, p.y); g.stroke(); if (shape === 'arrow'){ const a = Math.atan2(p.y - s.y, p.x - s.x), L = E.size * 4; g.beginPath(); g.moveTo(p.x, p.y); g.lineTo(p.x - L*Math.cos(a - .45), p.y - L*Math.sin(a - .45)); g.lineTo(p.x - L*Math.cos(a + .45), p.y - L*Math.sin(a + .45)); g.closePath(); g.fill(); } } };
+    E.toolMove = (p, s) => { const g = clearOv(); paint(g, s, p); };
+    E.toolDown = () => {};
+    E.toolUp = (p, s) => { clearOv(); if (Math.abs(p.x - s.x) + Math.abs(p.y - s.y) < 3) return; const c = MoaImg.cloneCanvas(E.work); paint(c.getContext('2d'), s, p); commit(c); };
+  } else if (k === 'frame'){
+    let bw = Math.round(Math.max(W, H) / 40), col = '#ffffff', round = 0, polaroid = false;
+    const mk = () => { const pb = polaroid ? bw * 4 : bw; const c = document.createElement('canvas'); c.width = W + bw*2; c.height = H + bw + pb; const g = c.getContext('2d'); g.fillStyle = col; g.fillRect(0, 0, c.width, c.height); g.save(); if (round){ g.beginPath(); g.roundRect(bw, bw, W, H, round); g.clip(); } g.drawImage(E.work, bw, bw); g.restore(); return c; };
+    const upd = () => { E.preview = mk(); draw(); };
+    o.append(el('h3',null,'테두리'), slider('두께', 0, Math.round(Math.max(W,H)/5), bw, 1, v => { bw = v; upd(); }), slider('둥근 모서리', 0, Math.round(Math.min(W,H)/4), 0, 1, v => { round = v; upd(); }),
+      el('label',{class:'chk'}, el('input',{type:'checkbox', onchange:e => { polaroid = e.target.checked; upd(); }}), '폴라로이드 스타일 (아래 여백 넓게)'),
+      colorPicker(() => col, v => { col = v; upd(); }), applyBtn('테두리 적용', () => commit(mk())));
+    upd();
+  }
+}
+async function saveEdit(asNew){
+  const it = E.it; const c = E.work;
+  if (!asNew && it.handle){
+    if (!(await Moa.confirm(`원본 파일 '${it.name}'에 덮어쓸까요?`))) return;
+    try {
+      const type = /\.png$/i.test(it.name) ? 'image/png' : /\.webp$/i.test(it.name) ? 'image/webp' : 'image/jpeg';
+      const blob = await Moa.canvasToBlob(c, type, S.quality);
+      const w = await it.handle.createWritable(); await w.write(blob); await w.close();
+      await refreshItem(it, await it.handle.getFile()); E.dirty = false; toast('저장했습니다: ' + it.name); return;
+    } catch(e){ console.warn(e); toast('덮어쓸 수 없어 다른 이름으로 저장합니다'); }
+  }
+  const body = el('div',{style:{width:'min(420px,84vw)'}, html:`
+    <label class="field"><span>파일 이름</span><input type="text" id="sn" value="${esc(it.name.replace(/\.[^.]+$/, '') + (asNew || !it.handle ? '_편집' : ''))}"></label>
+    <label class="field"><span>형식</span><select id="sf"><option value="image/jpeg">JPG</option><option value="image/png">PNG</option><option value="image/webp">WEBP</option></select></label>
+    <label class="field"><span>품질</span><input type="range" id="sq" min="40" max="100" value="${Math.round(S.quality*100)}"></label>
+    <div class="dim" id="sEst"></div>`});
+  const sf = body.querySelector('#sf'); sf.value = /\.png$/i.test(it.name) ? 'image/png' : /\.webp$/i.test(it.name) ? 'image/webp' : 'image/jpeg';
+  const est = async () => { const b = await Moa.canvasToBlob(c, sf.value, body.querySelector('#sq').value / 100); body.querySelector('#sEst').textContent = `예상 크기: ${Moa.fmtBytes(b.size)} · ${c.width}×${c.height}`; };
+  sf.onchange = est; body.querySelector('#sq').onchange = est; est();
+  const r = await Moa.modal({title:'다른 이름으로 저장', body, width:'auto', buttons:[{label:'취소', value:null}, {label:'저장', primary:true, onClick:()=>({name:body.querySelector('#sn').value.trim() || 'image', type:sf.value, q:body.querySelector('#sq').value / 100})}]});
+  if (!r) return;
+  S.quality = r.q; saveS();
+  const extn = {'image/jpeg':'.jpg','image/png':'.png','image/webp':'.webp'}[r.type];
+  const blob = await Moa.canvasToBlob(c, r.type, r.q); const name = r.name + extn;
+  if (it.dirHandle){
+    try { const fh = await it.dirHandle.getFileHandle(name, {create:true}); const w = await fh.createWritable(); await w.write(blob); await w.close(); const f = await fh.getFile(); const ni = mkItem(f, it.dir, fh, it.dirHandle); all.push(ni); E.dirty = false; renderGrid(); renderTree(); toast('같은 폴더에 저장했습니다: ' + name); return; }
+    catch(e){ console.warn(e); }
+  }
+  if (await Moa.saveAs(blob, name)){ E.dirty = false; const f = new File([blob], name, {type:r.type, lastModified:Date.now()}); all.push(mkItem(f, it.dir, null, null)); renderGrid(); }
+}
+async function refreshItem(it, f){ it.file = f; it.size = f.size; it.mtime = f.lastModified; it.thumb = null; it.thumbing = false; it.exif = undefined; queueThumb(it); renderGrid(); }
+
+/* ================= 빠른 작업 ================= */
+async function quickRotate(deg){
+  const sel = selItems(); if (!sel.length) return toast('사진을 선택하세요');
+  const canWrite = sel.every(x => x.handle);
+  if (!canWrite && !(await Moa.confirm(`선택한 ${sel.length}장을 회전한 사본을 다운로드할까요?\n('폴더 열기'로 연 사진은 원본에 바로 저장됩니다)`))) return;
+  for (const it of sel){
+    const img = await Moa.loadImage(URL.createObjectURL(it.file)); const c = MoaImg.rotateCanvas(MoaImg.canvasFrom(img), deg); URL.revokeObjectURL(img.src);
+    const type = /\.png$/i.test(it.name) ? 'image/png' : /\.webp$/i.test(it.name) ? 'image/webp' : 'image/jpeg';
+    const blob = await Moa.canvasToBlob(c, type, S.quality);
+    if (it.handle){ try { const w = await it.handle.createWritable(); await w.write(blob); await w.close(); await refreshItem(it, await it.handle.getFile()); continue; } catch(e){ console.warn(e); } }
+    Moa.download(blob, it.name);
+  }
+  toast(`${sel.length}장을 ${deg > 0 ? '오른쪽' : '왼쪽'}으로 회전했습니다`);
+}
+async function renameSel(){
+  const it = selItems()[0]; if (!it) return toast('사진을 선택하세요');
+  const n = await Moa.prompt('새 이름', it.name); if (!n || n === it.name) return;
+  if (it.handle && it.handle.move){ try { await it.handle.move(n); it.name = n; it.path = it.dir + n; it.file = await it.handle.getFile(); renderGrid(); toast('이름을 바꿨습니다'); return; } catch(e){ console.warn(e); } }
+  it.name = n; it.path = it.dir + n; renderGrid(); toast('목록의 이름만 바꿨습니다 (원본 파일 이름 변경은 폴더 열기로 연 경우에 가능)');
+}
+async function deleteItems(sel){
+  if (!sel.length) return false;
+  const disk = sel.filter(x => x.dirHandle);
+  const r = await Moa.modal({title:'삭제', body:`${sel.length}장을 ${disk.length ? '어떻게 할까요?' : '목록에서 뺄까요?'}`, buttons:[{label:'취소', value:null}, {label:'목록에서만 빼기', value:'list'}, ...(disk.length ? [{label:'파일 삭제', danger:true, value:'disk'}] : [])]});
+  if (!r) return false;
+  if (r === 'disk'){ if (!(await Moa.confirm(`${disk.length}개 파일을 디스크에서 영구 삭제합니다. 되돌릴 수 없습니다. 계속할까요?`))) return false; for (const it of disk){ try { await it.dirHandle.removeEntry(it.name); } catch(e){ toast('삭제 실패: ' + it.name); } } }
+  all = all.filter(x => !sel.includes(x)); sel.forEach(x => selected.delete(x.id)); if (focusId && !byId(focusId)) focusId = null; renderTree(); renderGrid(); renderInfo(); return true;
+}
+const deleteSel = () => deleteItems(selItems());
+async function copyCanvas(c){ try { const b = await Moa.canvasToBlob(c, 'image/png'); await navigator.clipboard.write([new ClipboardItem({'image/png': b})]); toast('클립보드로 복사했습니다'); } catch(e){ toast('복사할 수 없습니다: ' + e.message); } }
+async function copyItem(it){ const img = await Moa.loadImage(URL.createObjectURL(it.file)); await copyCanvas(MoaImg.canvasFrom(img)); URL.revokeObjectURL(img.src); }
+const copySel = () => { const it = selItems()[0]; if (it) copyItem(it); else toast('사진을 선택하세요'); };
+function printSel(){
+  const sel = selItems(); if (!sel.length) return toast('인쇄할 사진을 선택하세요');
+  const fr = el('iframe',{style:{position:'fixed', width:0, height:0, border:0}}); document.body.append(fr);
+  const d = fr.contentDocument; d.open(); d.write('<!doctype html><title>인쇄</title><style>@page{margin:10mm}body{margin:0}img{display:block;max-width:100%;max-height:96vh;margin:auto;page-break-after:always}</style>' + sel.map(x => `<img src="${URL.createObjectURL(x.file)}">`).join('')); d.close();
+  const imgs = [...d.images]; Promise.all(imgs.map(i => i.complete ? 1 : new Promise(r => { i.onload = i.onerror = r; }))).then(() => { try { fr.contentWindow.print(); } catch(e){ toast('인쇄할 수 없습니다'); } setTimeout(() => fr.remove(), 60000); });
+}
+function propsDialog(it){
+  MoaImg.readExif(it.file).then(x => {
+    it.exif = x;
+    const rows = [['이름', it.name], ['위치', it.dir], ['크기', it.w + ' × ' + it.h], ['파일 크기', Moa.fmtBytes(it.size) + ` (${it.size.toLocaleString()} 바이트)`], ['형식', it.file.type || '-'], ['수정한 날짜', Moa.fmtDate(it.mtime)]].concat(MoaImg.exifRows(x));
+    Moa.modal({title:'속성', body:`<dl style="display:grid;grid-template-columns:96px 1fr;gap:6px 12px;margin:0;width:min(440px,80vw)">${rows.map(([k,v]) => `<dt class="dim">${esc(k)}</dt><dd style="margin:0;word-break:break-all">${esc(v)}</dd>`).join('')}</dl>`});
+  });
+}
+
+/* ================= 일괄 변환 ================= */
+async function batchDialog(){
+  let sel = selItems(); if (sel.length < 2) sel = shown.slice();
+  if (!sel.length) return toast('변환할 사진이 없습니다');
+  const body = el('div',{style:{width:'min(560px,88vw)'}});
+  body.innerHTML = `<div class="dim" style="margin-bottom:8px">${sel.length}장 (${selItems().length >= 2 ? '선택한 사진' : '현재 목록 전체'})</div>
+  <fieldset><legend>형식</legend>
+    <label class="field"><span>저장 형식</span><select id="bF"><option value="keep">원래 형식 유지</option><option value="image/jpeg">JPG</option><option value="image/png">PNG</option><option value="image/webp">WEBP</option></select></label>
+    <label class="field"><span>품질</span><span class="row"><input type="range" id="bQ" min="40" max="100" value="${Math.round(S.quality*100)}" style="flex:1"><span id="bQv">${Math.round(S.quality*100)}</span></span></label></fieldset>
+  <fieldset><legend>크기</legend>
+    <label class="field"><span>크기 바꾸기</span><select id="bR"><option value="none">바꾸지 않음</option><option value="long">긴 쪽을</option><option value="width">가로를</option><option value="height">세로를</option><option value="pct">비율(%)로</option></select></label>
+    <label class="field"><span>값</span><span class="row"><input type="number" id="bRv" value="1920" style="width:100px"><label class="chk"><input type="checkbox" id="bNoUp" checked> 원본보다 키우지 않기</label></span></label></fieldset>
+  <fieldset><legend>이름</legend>
+    <label class="field"><span>이름 규칙</span><input type="text" id="bN" value="{이름}"></label>
+    <div class="dim" style="font-size:11.5px">{이름} 원래 이름 · {번호} 1,2,3 · {번호3} 001,002 · {날짜} 촬영/수정 날짜 · {가로} {세로}</div></fieldset>
+  <fieldset><legend>기타</legend>
+    <label class="field"><span>회전</span><select id="bRot"><option value="0">없음</option><option value="90">오른쪽 90°</option><option value="-90">왼쪽 90°</option><option value="180">180°</option></select></label>
+    <label class="field"><span>워터마크</span><input type="text" id="bW" placeholder="비워 두면 넣지 않음 (예: © 내 이름)"></label>
+    <label class="field"><span>워터마크 위치</span><select id="bWp"><option value="br">오른쪽 아래</option><option value="bl">왼쪽 아래</option><option value="c">가운데</option><option value="tr">오른쪽 위</option></select></label>
+    <label class="field"><span>보정</span><select id="bAdj"><option value="">없음</option><option value="auto">자동 레벨 보정</option><option value="gray">흑백</option><option value="sharp">선명하게</option></select></label></fieldset>
+  <label class="field"><span>저장 위치</span><select id="bOut"><option value="folder">폴더 선택</option><option value="zip">ZIP 파일 하나로</option><option value="each">파일별 다운로드</option></select></label>`;
+  body.querySelector('#bQ').oninput = e => body.querySelector('#bQv').textContent = e.target.value;
+  if (!window.showDirectoryPicker) body.querySelector('#bOut').value = 'zip';
+  const ok = await Moa.modal({title:'일괄 변환', body, width:'auto', buttons:[{label:'취소', value:false}, {label:'변환 시작', primary:true, value:true}]});
+  if (!ok) return;
+  const g = id => body.querySelector(id).value;
+  const o = {fmt:g('#bF'), q:+g('#bQ')/100, rmode:g('#bR'), rv:+g('#bRv'), noUp:body.querySelector('#bNoUp').checked, name:g('#bN') || '{이름}', rot:+g('#bRot'), wm:g('#bW'), wp:g('#bWp'), adj:g('#bAdj'), out:g('#bOut')};
+  S.quality = o.q; saveS();
+  let dir = null;
+  if (o.out === 'folder'){ try { dir = await showDirectoryPicker({mode:'readwrite', id:'moasee-out'}); } catch(e){ if (e.name === 'AbortError') return; o.out = 'zip'; } }
+  const prog = progress('일괄 변환 중'); const zipItems = []; const used = new Set(); let n = 0, fail = 0;
+  for (let i = 0; i < sel.length; i++){
+    if (prog.cancelled) break;
+    const it = sel[i]; prog.set(i / sel.length, it.name);
+    try {
+      const img = await Moa.loadImage(URL.createObjectURL(it.file)); let c = MoaImg.canvasFrom(img); URL.revokeObjectURL(img.src);
+      if (o.rot) c = MoaImg.rotateCanvas(c, o.rot);
+      if (o.rmode !== 'none' && o.rv > 0){
+        let s = o.rmode === 'long' ? o.rv / Math.max(c.width, c.height) : o.rmode === 'width' ? o.rv / c.width : o.rmode === 'height' ? o.rv / c.height : o.rv / 100;
+        if (o.noUp) s = Math.min(1, s); if (s !== 1) c = MoaImg.resizeCanvas(c, c.width * s, c.height * s);
+      }
+      if (o.adj === 'auto') MoaImg.autoLevel(c); else if (o.adj === 'sharp') MoaImg.sharpen(c, .6); else if (o.adj === 'gray'){ const t = document.createElement('canvas'); t.width = c.width; t.height = c.height; const gg = t.getContext('2d'); gg.filter = 'grayscale(100%)'; gg.drawImage(c, 0, 0); c = t; }
+      if (o.wm){ const gg = c.getContext('2d'); const fs = Math.max(12, Math.round(Math.min(c.width, c.height) / 22)); gg.font = `bold ${fs}px "Malgun Gothic",sans-serif`; gg.fillStyle = 'rgba(255,255,255,.75)'; gg.strokeStyle = 'rgba(0,0,0,.45)'; gg.lineWidth = Math.max(1, fs / 10); const m = fs * .8;
+        const pos = {br:[c.width - m, c.height - m, 'right'], bl:[m, c.height - m, 'left'], c:[c.width/2, c.height/2, 'center'], tr:[c.width - m, m + fs, 'right']}[o.wp]; gg.textAlign = pos[2]; gg.textBaseline = 'alphabetic'; gg.strokeText(o.wm, pos[0], pos[1]); gg.fillText(o.wm, pos[0], pos[1]); }
+      const type = o.fmt === 'keep' ? (/\.png$/i.test(it.name) ? 'image/png' : /\.webp$/i.test(it.name) ? 'image/webp' : 'image/jpeg') : o.fmt;
+      const blob = await Moa.canvasToBlob(c, type, o.q);
+      const exif = it.exif === undefined ? (it.exif = await MoaImg.readExif(it.file)) : it.exif;
+      const date = (exif?.dateTaken || '').slice(0, 10).replace(/:/g, '-') || new Date(it.mtime).toISOString().slice(0, 10);
+      let name = o.name.replace(/\{이름\}/g, it.name.replace(/\.[^.]+$/, '')).replace(/\{번호(\d)?\}/g, (_, d) => String(i + 1).padStart(+d || 0, '0')).replace(/\{날짜\}/g, date).replace(/\{가로\}/g, c.width).replace(/\{세로\}/g, c.height).replace(/[\\/:*?"<>|]/g, '_');
+      name += {'image/jpeg':'.jpg','image/png':'.png','image/webp':'.webp'}[type];
+      let nn = name, k = 2; while (used.has(nn.toLowerCase())) nn = name.replace(/(\.[^.]+)$/, ` (${k++})$1`); used.add(nn.toLowerCase());
+      if (o.out === 'folder' && dir){ const fh = await dir.getFileHandle(nn, {create:true}); const w = await fh.createWritable(); await w.write(blob); await w.close(); }
+      else if (o.out === 'zip') zipItems.push({name:nn, data:new Uint8Array(await blob.arrayBuffer()), mtime:new Date()});
+      else { Moa.download(blob, nn); await new Promise(r => setTimeout(r, 250)); }
+      n++;
+    } catch(e){ console.warn(e); fail++; }
+    await new Promise(r => setTimeout(r, 0));
+  }
+  if (o.out === 'zip' && zipItems.length){ prog.set(1, 'ZIP 만드는 중…'); const z = await MoaZip.writeZip(zipItems, {level:0}); prog.close(); await Moa.saveAs(z, '변환된 사진.zip'); } else prog.close();
+  toast(`${n}장 변환 완료` + (fail ? `, 실패 ${fail}장` : ''), 3000);
+}
+function progress(title){
+  const bar = el('i'), txt = el('div',{class:'dim', style:{fontSize:'12px', marginTop:'8px', width:'360px', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis'}});
+  const st = {cancelled:false};
+  Moa.modal({title, body: el('div',null, el('div',{class:'progress'}, bar), txt), closeOnBg:false, buttons:[{label:'취소', onClick:()=>{ st.cancelled = true; }}]});
+  const m = Moa._lastModal; st.set = (f, t) => { bar.style.width = f * 100 + '%'; txt.textContent = t || ''; }; st.close = () => m.close(); return st;
+}
+
+/* ================= 사진 합치기 ================= */
+async function combineDialog(){
+  const sel = selItems(); if (sel.length < 2) return toast('합칠 사진을 2장 이상 선택하세요 (Ctrl/Shift+클릭)');
+  const imgs = []; for (const it of sel){ imgs.push(await Moa.loadImage(URL.createObjectURL(it.file))); }
+  const o = {dir:'h', cols:2, gap:10, bg:'#ffffff', size:1200, fit:'match'};
+  const pv = el('canvas',{style:{maxWidth:'100%', maxHeight:'50vh', display:'block', margin:'10px auto', background:'repeating-conic-gradient(#8883 0% 25%,transparent 0% 50%) 0 0/16px 16px'}});
+  const build = () => {
+    let c = document.createElement('canvas'), g;
+    if (o.dir === 'grid'){
+      const cols = Math.max(1, o.cols), rows = Math.ceil(imgs.length / cols), cell = Math.round(o.size / cols);
+      c.width = cols * cell + (cols + 1) * o.gap; c.height = rows * cell + (rows + 1) * o.gap; g = c.getContext('2d'); g.fillStyle = o.bg; g.fillRect(0, 0, c.width, c.height);
+      imgs.forEach((im, i) => { const x = o.gap + (i % cols) * (cell + o.gap), y = o.gap + Math.floor(i / cols) * (cell + o.gap); const s = Math.max(cell / im.naturalWidth, cell / im.naturalHeight); const w = im.naturalWidth * s, h = im.naturalHeight * s; g.save(); g.beginPath(); g.rect(x, y, cell, cell); g.clip(); g.drawImage(im, x + (cell - w) / 2, y + (cell - h) / 2, w, h); g.restore(); });
+    } else {
+      const H = o.dir === 'h';
+      const base = o.size; // 가로 합치기: 같은 높이, 세로 합치기: 같은 너비
+      const sizes = imgs.map(im => H ? [im.naturalWidth * base / im.naturalHeight, base] : [base, im.naturalHeight * base / im.naturalWidth]);
+      c.width = H ? sizes.reduce((a, s) => a + s[0], 0) + o.gap * (imgs.length + 1) : base + o.gap * 2;
+      c.height = H ? base + o.gap * 2 : sizes.reduce((a, s) => a + s[1], 0) + o.gap * (imgs.length + 1);
+      if (c.width > 16000 || c.height > 16000){ const k = 16000 / Math.max(c.width, c.height); o.size = Math.floor(o.size * k); return build(); }
+      g = c.getContext('2d'); g.fillStyle = o.bg; g.fillRect(0, 0, c.width, c.height);
+      let p = o.gap; imgs.forEach((im, i) => { const [w, h] = sizes[i]; if (H){ g.drawImage(im, p, o.gap, w, h); p += w + o.gap; } else { g.drawImage(im, o.gap, p, w, h); p += h + o.gap; } });
+    }
+    return c;
+  };
+  const upd = () => { const c = build(); pv.width = c.width; pv.height = c.height; pv.getContext('2d').drawImage(c, 0, 0); info.textContent = `${c.width} × ${c.height} 픽셀`; };
+  const info = el('div',{class:'dim', style:{textAlign:'center'}});
+  const body = el('div',{style:{width:'min(720px,90vw)'}},
+    el('div',{class:'row', style:{flexWrap:'wrap'}}, ...[['h','가로로 이어 붙이기'],['v','세로로 이어 붙이기'],['grid','바둑판']].map(([v, n], i) => el('label',{class:'chk'}, el('input',{type:'radio', name:'cd', checked:i===0, onchange:()=>{ o.dir = v; upd(); }}), n))),
+    el('div',{class:'row', style:{flexWrap:'wrap', marginTop:'8px'}}, '간격', el('input',{type:'number', value:o.gap, min:0, max:200, style:{width:'70px'}, oninput:e => { o.gap = +e.target.value; upd(); }}),
+      '기준 크기', el('input',{type:'number', value:o.size, min:100, max:8000, style:{width:'90px'}, oninput:e => { o.size = +e.target.value; upd(); }}),
+      '열 수(바둑판)', el('input',{type:'number', value:o.cols, min:1, max:10, style:{width:'60px'}, oninput:e => { o.cols = +e.target.value; upd(); }}),
+      '배경', el('input',{type:'color', value:o.bg, oninput:e => { o.bg = e.target.value; upd(); }})),
+    pv, info);
+  upd();
+  const r = await Moa.modal({title:`사진 합치기 (${imgs.length}장)`, body, width:'auto', buttons:[{label:'취소', value:null}, {label:'편집기로 열기', value:'edit'}, {label:'저장', primary:true, value:'save'}]});
+  imgs.forEach(im => URL.revokeObjectURL(im.src));
+  if (!r) return;
+  const c = build(); const blob = await Moa.canvasToBlob(c, 'image/jpeg', S.quality);
+  const f = new File([blob], '합친 사진.jpg', {type:'image/jpeg', lastModified:Date.now()});
+  if (r === 'save'){ await Moa.saveAs(blob, '합친 사진.jpg'); }
+  const it = mkItem(f, '만든 사진/', null, null); if (!dirs.has('만든 사진/')) dirs.set('만든 사진/', {name:'만든 사진'}); all.push(it); renderTree(); renderGrid();
+  if (r === 'edit') openEditor(it);
+}
+
+/* ================= GIF 만들기 ================= */
+async function gifDialog(){
+  const sel = selItems(); if (sel.length < 2) return toast('GIF로 만들 사진을 2장 이상 선택하세요');
+  const imgs = []; for (const it of sel) imgs.push(await Moa.loadImage(URL.createObjectURL(it.file)));
+  const o = {w:480, delay:500, loop:true, dither:true, fit:'contain', bg:'#ffffff'};
+  const body = el('div',{style:{width:'min(520px,88vw)'}});
+  const prevImg = el('img',{style:{maxWidth:'100%', maxHeight:'40vh', display:'block', margin:'10px auto', borderRadius:'6px'}});
+  const info = el('div',{class:'dim', style:{textAlign:'center'}});
+  body.append(el('div',{class:'dim'}, `${imgs.length}장 · 선택한 순서대로 재생됩니다.`),
+    el('label',{class:'field'}, el('span',null,'가로 크기(px)'), el('input',{type:'number', value:o.w, min:50, max:1200, oninput:e => o.w = +e.target.value})),
+    el('label',{class:'field'}, el('span',null,'장면 간격(ms)'), el('input',{type:'number', value:o.delay, min:20, max:10000, step:50, oninput:e => o.delay = +e.target.value})),
+    el('label',{class:'field'}, el('span',null,'맞추기'), el('select',{onchange:e => o.fit = e.target.value}, el('option',{value:'contain'}, '여백 두고 맞춤'), el('option',{value:'cover'}, '꽉 채우기(잘림)'))),
+    el('label',{class:'field'}, el('span',null,'배경색'), el('input',{type:'color', value:o.bg, oninput:e => o.bg = e.target.value})),
+    el('label',{class:'chk'}, el('input',{type:'checkbox', checked:true, onchange:e => o.loop = e.target.checked}), '무한 반복'), ' ',
+    el('label',{class:'chk'}, el('input',{type:'checkbox', checked:true, onchange:e => o.dither = e.target.checked}), '디더링 (색 표현 부드럽게)'),
+    prevImg, info);
+  let blob = null;
+  const make = async () => {
+    const r0 = imgs[0].naturalHeight / imgs[0].naturalWidth; const W = Math.round(o.w), H = Math.round(o.w * r0);
+    info.textContent = '만드는 중…'; await new Promise(r => setTimeout(r, 20));
+    const frames = imgs.map(im => { const c = document.createElement('canvas'); c.width = W; c.height = H; const g = c.getContext('2d'); g.fillStyle = o.bg; g.fillRect(0, 0, W, H); const s = (o.fit === 'cover' ? Math.max : Math.min)(W / im.naturalWidth, H / im.naturalHeight); const w = im.naturalWidth * s, h = im.naturalHeight * s; g.drawImage(im, (W - w) / 2, (H - h) / 2, w, h); return {canvas:c, delay:o.delay}; });
+    blob = MoaImg.encodeGIF(frames, {loop: o.loop ? 0 : 1, dither:o.dither});
+    if (prevImg.src) URL.revokeObjectURL(prevImg.src); prevImg.src = URL.createObjectURL(blob);
+    info.textContent = `${W} × ${H} · ${frames.length}장면 · ${Moa.fmtBytes(blob.size)}`;
+  };
+  const r = await Moa.modal({title:'GIF 만들기', body, width:'auto', buttons:[{label:'취소', value:null}, {label:'미리 보기', onClick:async ()=>{ await make(); return false; }}, {label:'저장', primary:true, onClick:async ()=>{ if (!blob) await make(); return 'save'; }}]});
+  imgs.forEach(im => URL.revokeObjectURL(im.src));
+  if (r === 'save' && blob){ await Moa.saveAs(blob, '움직이는 사진.gif'); const f = new File([blob], '움직이는 사진.gif', {type:'image/gif', lastModified:Date.now()}); if (!dirs.has('만든 사진/')) dirs.set('만든 사진/', {name:'만든 사진'}); all.push(mkItem(f, '만든 사진/', null, null)); renderTree(); renderGrid(); }
+}
+
+/* ================= 설정 / 도움말 ================= */
+function settings(){
+  const body = el('div',{style:{width:'min(460px,86vw)'}, html:`
+    <fieldset><legend>보기</legend>
+      <label class="field"><span>처음 보기 크기</span><select id="sFit"><option value="fit">화면에 맞춤</option><option value="shrink">큰 사진만 줄이기</option></select></label>
+      <label class="field"><span>마우스 휠</span><select id="sWheel"><option value="zoom">확대/축소</option><option value="nav">이전/다음 사진</option></select></label>
+      <label class="field"><span>보기 배경</span><select id="sBg"><option value="dark">어둡게</option><option value="light">밝게</option></select></label></fieldset>
+    <fieldset><legend>슬라이드 쇼</legend>
+      <label class="field"><span>넘김 간격(초)</span><input type="number" id="sSec" min="1" max="60" value="${S.slideSec}"></label>
+      <label class="chk"><input type="checkbox" id="sLoop" ${S.slideLoop ? 'checked' : ''}> 끝나면 처음부터 반복</label></fieldset>
+    <fieldset><legend>저장</legend>
+      <label class="field"><span>JPG 품질</span><input type="number" id="sQ" min="40" max="100" value="${Math.round(S.quality*100)}"></label></fieldset>`});
+  body.querySelector('#sFit').value = S.fitMode; body.querySelector('#sWheel').value = S.wheelNav ? 'nav' : 'zoom'; body.querySelector('#sBg').value = S.viewerBg;
+  Moa.modal({title:'설정', body, width:'auto', buttons:[{label:'취소', value:null}, {label:'확인', primary:true, onClick:()=>{ S.fitMode = body.querySelector('#sFit').value; S.wheelNav = body.querySelector('#sWheel').value === 'nav'; S.viewerBg = body.querySelector('#sBg').value; S.slideSec = Math.max(1, +body.querySelector('#sSec').value || 3); S.slideLoop = body.querySelector('#sLoop').checked; S.quality = Math.max(.4, Math.min(1, (+body.querySelector('#sQ').value || 92) / 100)); saveS(); }}]});
+}
+function help(){
+  Moa.modal({title:'HANAI View 도움말', width:600, body:`<p style="margin-top:0"><b>폴더 열기</b>로 사진 폴더를 열면 하위 폴더까지 모두 보이고, 편집·회전·이름 바꾸기 결과를 원본 폴더에 바로 저장할 수 있습니다(Chrome·Edge). 사진을 끌어다 놓거나 Ctrl+V로 붙여넣어도 됩니다.</p>
+  <p><b>보기</b>: 더블클릭하면 크게 봅니다. 휠로 확대/축소, 끌어서 이동, 더블클릭으로 원본 크기/맞춤 전환. <b>편집</b>: 자르기·크기·회전·색 보정·효과·모자이크·글자·그리기·도형·테두리를 지원하고 실행 취소가 됩니다.</p>
+  <p><b>일괄 변환</b>은 여러 장의 형식·크기·이름·워터마크를 한 번에 바꾸고, <b>사진 합치기</b>와 <b>GIF 만들기</b>는 선택한 여러 장으로 새 사진을 만듭니다.</p>` +
+  Moa.shortcutTable([['Enter / 더블클릭','크게 보기'],['← → / Space','이전 / 다음 (보기 중)'],['+ / -','확대 / 축소'],['* / 0','화면에 맞춤'],['/ / 1','원본 크기'],['F / F11','전체 화면'],['F5','슬라이드 쇼'],['I','사진 정보'],['L / R','보기 회전'],['E','편집'],['Ctrl+Z / Ctrl+Y','실행 취소 / 다시 실행 (편집)'],['Ctrl+S','저장 (편집)'],['Ctrl+C','클립보드로 복사'],['Ctrl+V','붙여넣기'],['F2','이름 바꾸기'],['Delete','삭제'],['Ctrl+A','전체 선택'],['Esc','닫기']])});
+}
+
+/* ================= 단축키 ================= */
+document.addEventListener('keydown', e => {
+  if (document.querySelector('.moa-modal-bg')) return;
+  if (e.target.matches('input,textarea,select')) return;
+  const k = e.key, c = e.ctrlKey || e.metaKey;
+  if (E){
+    if (c && (k === 'z' || k === 'Z')){ e.preventDefault(); e.shiftKey ? redo() : undo(); }
+    else if (c && (k === 'y' || k === 'Y')){ e.preventDefault(); redo(); }
+    else if (c && (k === 's' || k === 'S')){ e.preventDefault(); saveEdit(e.shiftKey); }
+    else if (c && (k === 'c' || k === 'C')){ e.preventDefault(); copyCanvas(E.work); }
+    else if (k === 'Escape') closeEditor();
+    else if (k === 'Enter' && E.enter){ e.preventDefault(); E.enter(); }
+    else if (k === '+' || k === '='){ setEZoom(E.zoom * 1.25); } else if (k === '-'){ setEZoom(E.zoom / 1.25); } else if (k === '0'){ fitE(); }
+    return;
+  }
+  if (V){
+    if (k === 'Escape'){ if (document.fullscreenElement) return; closeViewer(); }
+    else if (k === 'ArrowRight' || k === 'PageDown' || k === 'ArrowDown'){ e.preventDefault(); V.go(1); }
+    else if (k === 'ArrowLeft' || k === 'PageUp' || k === 'ArrowUp' || k === 'Backspace'){ e.preventDefault(); V.go(-1); }
+    else if (k === ' '){ e.preventDefault(); if (V.slide) V.toggleSlide(); else V.go(1); }
+    else if (k === 'Home'){ V.i = 0; V.show(); } else if (k === 'End'){ V.i = V.list.length - 1; V.show(); }
+    else if (k === '+' || k === '='){ V.zoomBy(1.25); } else if (k === '-'){ V.zoomBy(1/1.25); }
+    else if (k === '*' || k === '0'){ V.fit(); } else if (k === '/' || k === '1'){ V.setZoom(1); }
+    else if (k === 'f' || k === 'F' || k === 'F11' || k === 'Enter'){ e.preventDefault(); V.toggleFull(); }
+    else if (k === 'F5'){ e.preventDefault(); V.toggleSlide(); }
+    else if (k === 'i' || k === 'I'){ V.root.querySelector('[title^="사진 정보"]').click(); }
+    else if (k === 'l' || k === 'L'){ V.root.querySelector('[title^="왼쪽 회전"]').click(); }
+    else if (k === 'r' || k === 'R'){ V.root.querySelector('[title^="오른쪽 회전"]').click(); }
+    else if (k === 'h' || k === 'H'){ V.root.querySelector('[title^="좌우 반전"]').click(); }
+    else if (k === 'e' || k === 'E'){ const cur = V.list[V.i]; closeViewer(); openEditor(cur); }
+    else if (c && (k === 'c' || k === 'C')){ copyItem(V.list[V.i]); }
+    else if (k === 'Delete'){ V.root.querySelector('[title^="삭제"]').click(); }
+    return;
+  }
+  if (c && e.shiftKey && (k === 'o' || k === 'O')){ e.preventDefault(); openFolder(); }
+  else if (c && (k === 'o' || k === 'O')){ e.preventDefault(); openFiles(); }
+  else if (c && (k === 'a' || k === 'A')){ e.preventDefault(); shown.forEach(x => selected.add(x.id)); updateSel(); }
+  else if (c && (k === 'c' || k === 'C')){ e.preventDefault(); copySel(); }
+  else if (c && (k === 'p' || k === 'P')){ e.preventDefault(); printSel(); }
+  else if (c && (k === 'l' || k === 'L')){ e.preventDefault(); quickRotate(-90); }
+  else if (c && (k === 'r' || k === 'R')){ e.preventDefault(); quickRotate(90); }
+  else if (k === 'Enter'){ openViewer(); }
+  else if (k === 'F5'){ e.preventDefault(); openViewer(null, true); }
+  else if (k === 'e' || k === 'E'){ openEditor(); }
+  else if (k === 'F2'){ e.preventDefault(); renameSel(); }
+  else if (k === 'F1'){ e.preventDefault(); help(); }
+  else if (k === 'Delete'){ deleteSel(); }
+  else if (['ArrowRight','ArrowLeft','ArrowDown','ArrowUp'].includes(k)){
+    e.preventDefault(); if (!shown.length) return;
+    const cols = Math.max(1, Math.floor($('#grid').clientWidth / (S.th + 10)));
+    let i = shown.findIndex(x => x.id === focusId); const d = {ArrowRight:1, ArrowLeft:-1, ArrowDown:cols, ArrowUp:-cols}[k];
+    i = Math.max(0, Math.min(shown.length - 1, i < 0 ? 0 : i + d));
+    focusId = shown[i].id; if (!e.shiftKey) selected.clear(); selected.add(focusId); lastSel = focusId; updateSel(); renderInfo();
+    $('#grid').querySelector(`.thumb[data-id="${focusId}"]`)?.scrollIntoView({block:'nearest'});
+  }
+});
+document.addEventListener('fullscreenchange', () => { if (V && V.fitted) setTimeout(() => V && V.fit(), 100); });
+
+renderTree(); renderGrid(); renderInfo();
+window.MoaSee = {addFiles, openViewer, openEditor, get all(){ return all; }, selectTool:k=>selectTool(k), get E(){ return E; }, batchDialog, gifDialog, combineDialog, sel:(ids)=>{ selected = new Set(ids); updateSel(); }};
+})();
+</script>
+<script>/* 웹판: 처음 화면 · 기본판 ↔ Plus판 전환 */
+(function(){
+  var plus = /\/plus\//.test(location.pathname), f = location.pathname.split('/').pop() || 'index.html';
+  var t = document.querySelector('.moa-title'); if (!t) return;
+  function b(txt, href, title, ask){ var a = document.createElement('a'); a.className = 'btn sm'; a.textContent = txt; a.href = href; a.title = title; a.style.marginLeft = '6px'; a.style.textDecoration = 'none';
+    if (ask) a.onclick = function(e){ if (!confirm('지금 열려 있는 파일과 작업은 닫힙니다.\n' + (plus ? '기본판' : 'Plus판') + '으로 바꿀까요?')) e.preventDefault(); };
+    t.appendChild(a); }
+  b('처음 화면', './', 'HANAI Tools 처음 화면', true);
+  b(plus ? '기본판으로' : 'Plus판으로', (plus ? '../' : 'plus/') + f, plus ? '같은 프로그램의 기본판을 엽니다' : '같은 프로그램의 Plus판을 엽니다 (7Z·음정·MP3·글자 추출·AI 배경 지우기 등)', true);
+})();
+</script>
+</body>
+</html>

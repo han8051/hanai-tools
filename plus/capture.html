@@ -1,0 +1,533 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 32 32%22%3E%3Crect width=%2232%22 height=%2232%22 rx=%228%22 fill=%22%237c8cff%22/%3E%3Ctext x=%2216%22 y=%2223%22 font-size=%2219%22 font-family=%22Arial%22 font-weight=%22700%22 text-anchor=%22middle%22 fill=%22white%22%3EH%3C/text%3E%3C/svg%3E">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>HANAI Capture - HANAI Tools 화면 캡처</title>
+<link rel="stylesheet" href="../lib/moa.css">
+<style>
+.body{flex:1;display:grid;grid-template-columns:62px 1fr 250px;min-height:0}
+@media (max-width:900px){.body{grid-template-columns:56px 1fr}.props{display:none}}
+.tools{display:flex;flex-direction:column;gap:2px;padding:6px;background:var(--panel);border-right:1px solid var(--line);overflow:auto}
+.tools .tb{min-width:0;padding:6px 2px;font-size:10px}
+.stage{position:relative;overflow:auto;background:repeating-conic-gradient(#8882 0% 25%,transparent 0% 50%) 0 0/20px 20px}
+.stage .wrap{position:relative;margin:24px auto;width:max-content}
+.stage canvas{display:block}
+#cv{box-shadow:0 4px 24px rgba(0,0,0,.45)}
+#ov{position:absolute;left:0;top:0;pointer-events:none}
+.props{background:var(--panel);border-left:1px solid var(--line);padding:12px;overflow:auto}
+.props h3{font-size:13px;margin:0 0 8px;color:var(--dim);font-weight:500}
+.props section{margin-bottom:16px}
+.sw{display:grid;grid-template-columns:repeat(6,1fr);gap:4px}
+.sw button{aspect-ratio:1;border-radius:6px;border:2px solid transparent;cursor:pointer}
+.sw button.on{border-color:var(--text)}
+.hist{display:flex;gap:6px;padding:6px 8px;border-top:1px solid var(--line);background:var(--panel);overflow-x:auto;flex:none;min-height:74px;align-items:center}
+.hist .h{position:relative;flex:none}
+.hist img{height:58px;max-width:110px;object-fit:cover;border-radius:6px;border:2px solid transparent;cursor:pointer;background:#fff}
+.hist img.cur{border-color:var(--accent)}
+.hist .x{position:absolute;right:-4px;top:-4px;width:16px;height:16px;border-radius:50%;border:0;background:var(--danger);color:#fff;font-size:10px;display:none;cursor:pointer;line-height:16px;padding:0}
+.hist .h:hover .x{display:block}
+.welcome{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;height:100%;color:var(--dim);text-align:center;padding:24px}
+.welcome .cards{display:grid;grid-template-columns:repeat(4,150px);gap:12px}
+@media (max-width:760px){.welcome .cards{grid-template-columns:repeat(2,150px)}}
+.welcome .card{padding:16px 8px;border:1px solid var(--line);border-radius:14px;background:var(--panel);cursor:pointer;color:var(--text)}
+.welcome .card:hover{border-color:var(--accent)}
+.welcome .card svg{width:34px;height:34px;fill:none;stroke:var(--accent);stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round}
+.welcome .card b{display:block;margin:6px 0 2px}
+.welcome .card span{font-size:11px;color:var(--dim)}
+/* 영역 선택 */
+.region{position:fixed;inset:0;z-index:900;background:#000;cursor:crosshair;user-select:none}
+.region canvas{position:absolute;left:0;top:0}
+.region .help{position:absolute;left:50%;top:14px;transform:translateX(-50%);background:rgba(0,0,0,.75);color:#fff;padding:8px 14px;border-radius:10px;font-size:13px;pointer-events:none;z-index:2}
+.region .mag{position:absolute;width:150px;pointer-events:none;background:#111;border:2px solid #fff;border-radius:8px;overflow:hidden;color:#fff;font-size:11px;font-family:Consolas,monospace;z-index:2}
+.region .mag canvas{position:static;display:block;image-rendering:pixelated}
+.region .mag div{padding:3px 6px;line-height:1.4}
+.countdown{position:fixed;inset:0;z-index:950;display:grid;place-items:center;background:rgba(0,0,0,.35);font-size:120px;font-weight:800;color:#fff;text-shadow:0 4px 20px #000;pointer-events:none}
+.textedit{position:absolute;z-index:5;background:rgba(255,255,255,.9);border:1px dashed #1e88e5;outline:none;padding:2px 4px;min-width:40px;white-space:pre;font-family:"Malgun Gothic",sans-serif;line-height:1.25;color:#000}
+</style>
+</head>
+<body>
+<div class="moa-app">
+  <div class="moa-title"><div class="moa-logo">◎</div><h1>HANAI Capture</h1><span class="sub">HANAI Tools 화면 캡처</span><span class="grow"></span><span class="sub" id="imgInfo"></span></div>
+  <div class="moa-toolbar" id="toolbar"></div>
+  <div class="body">
+    <div class="tools" id="tools"></div>
+    <div class="stage" id="stage">
+      <div class="welcome" id="welcome">
+        <div style="font-size:18px;color:var(--text);font-weight:700">무엇을 캡처할까요?</div>
+        <div class="cards">
+          <div class="card" data-a="region"><svg viewBox="0 0 24 24"></svg><b>영역 지정</b><span>원하는 부분만 (Ctrl+Shift+A)</span></div>
+          <div class="card" data-a="full"><svg viewBox="0 0 24 24"></svg><b>전체 화면</b><span>모니터 전체 (Ctrl+Shift+F)</span></div>
+          <div class="card" data-a="window"><svg viewBox="0 0 24 24"></svg><b>창 / 탭</b><span>프로그램 창 하나 (Ctrl+Shift+W)</span></div>
+          <div class="card" data-a="delay"><svg viewBox="0 0 24 24"></svg><b>지연 캡처</b><span>몇 초 뒤에 찍기 (Ctrl+Shift+D)</span></div>
+        </div>
+        <div style="line-height:1.8">처음 캡처할 때 브라우저가 <b>어떤 화면을 공유할지</b> 묻습니다. 고른 화면은 다음 캡처에도 그대로 쓰입니다.<br>
+        윈도우의 <span class="kbd">Win</span>+<span class="kbd">Shift</span>+<span class="kbd">S</span>로 찍은 뒤 이 창에서 <span class="kbd">Ctrl</span>+<span class="kbd">V</span> 하면 바로 편집할 수 있습니다. 이미지 파일을 끌어다 놓아도 됩니다.</div>
+      </div>
+      <div class="wrap hidden" id="wrap"><canvas id="cv"></canvas><canvas id="ov"></canvas></div>
+    </div>
+    <div class="props" id="props"></div>
+  </div>
+  <div class="hist" id="hist"></div>
+  <div class="moa-status"><span class="grow" id="status">준비</span><span id="stShare"></span><span id="stPos"></span><span id="stZoom"></span></div>
+</div>
+<script src="../lib/pdf-lib.min.js"></script>
+<script src="../lib/moa-common.js"></script>
+<script src="../lib/moa-img.js"></script>
+<script src="../lib/moa-online.js"></script>
+<script>
+(() => {
+'use strict';
+const {$, el, esc, toast, icon} = Moa;
+Moa.applyTheme('cap');
+const S = Object.assign({color:'#ff3b30', width:4, font:22, fill:false, autoCopy:true, cursor:false, fmt:'image/png', quality:.92, delay:3, keepShare:true, nameFmt:'캡처_{날짜}_{시간}', shadowOnSave:false, numStyle:'circle'}, Moa.store.get('moacap.settings', {}));
+const saveS = () => Moa.store.set('moacap.settings', S);
+
+/* 상태 */
+let work = null;     // 현재 이미지 캔버스
+let hist = [], fut = [];  // 실행 취소
+let tool = 'arrow', zoom = 1, numCounter = 1, dirty = false;
+let captures = [];   // {id, blob, url, time}
+let curCap = null;
+let stream = null;
+const db = Moa.idb('moacapture', ['caps']);
+
+Moa.toolbar($('#toolbar'), [
+  {icon:'region', label:'영역 지정', title:'영역 지정 캡처 (Ctrl+Shift+A)', onClick:()=>capture('region')},
+  {icon:'monitor', label:'전체 화면', title:'전체 화면 캡처 (Ctrl+Shift+F)', onClick:()=>capture('full')},
+  {icon:'window', label:'창·탭', title:'창 또는 탭 캡처 (Ctrl+Shift+W)', onClick:()=>capture('window')},
+  {icon:'clock', label:'지연 캡처', title:'몇 초 뒤 캡처 (Ctrl+Shift+D)', onClick:()=>capture('delay')},
+  {icon:'refresh', label:'대상 바꾸기', title:'공유할 화면 다시 고르기', onClick:()=>{ stopShare(); capture('region'); }},
+  '|',
+  {icon:'open', label:'열기', title:'이미지 파일 열기 (Ctrl+O)', onClick:()=>openFile()},
+  {icon:'copy', label:'붙여넣기', title:'클립보드 이미지 열기 (Ctrl+V)', onClick:()=>pasteClip()},
+  '|',
+  {icon:'save', label:'저장', title:'저장 (Ctrl+S)', onClick:()=>save()},
+  {icon:'copy', label:'복사', title:'클립보드로 복사 (Ctrl+C)', onClick:()=>copyImg()},
+  {icon:'print', label:'인쇄', title:'인쇄 (Ctrl+P)', onClick:()=>printImg()},
+  {icon:'file', label:'PDF 저장', title:'PDF 파일로 저장', onClick:()=>savePdf()},
+  '|',
+  {icon:'undo', label:'실행 취소', title:'실행 취소 (Ctrl+Z)', onClick:()=>undo()},
+  {icon:'redo', label:'다시 실행', title:'다시 실행 (Ctrl+Y)', onClick:()=>redo()},
+  {icon:'zoomOut', label:'축소', onClick:()=>setZoom(zoom / 1.25)},
+  {icon:'fit', label:'맞춤', onClick:()=>fit()},
+  {icon:'zoomIn', label:'확대', onClick:()=>setZoom(zoom * 1.25)},
+  '|',
+  {icon:'text', label:'글자 추출', title:'캡처한 그림에서 글자 읽기(OCR) (Ctrl+Shift+T)', onClick:()=>ocrImage()},
+  {icon:'dropper', label:'색 추출', title:'화면 어디서나 색 뽑기 (Ctrl+Shift+C)', onClick:()=>eyedrop()},
+  {icon:'palette', label:'스킨', onClick:e=>Moa.themeMenu('cap', e.clientX, e.clientY+10)},
+  {icon:'gear', label:'설정', onClick:()=>settings()},
+  {icon:'help', label:'도움말', onClick:()=>help()},
+]);
+const WI = {region:'region', full:'monitor', window:'window', delay:'clock'};
+document.querySelectorAll('.welcome .card').forEach(c => { c.querySelector('svg').innerHTML = Moa.icons[WI[c.dataset.a]]; c.onclick = () => capture(c.dataset.a); });
+
+const TOOLS = [['select','이동','arrow'],['pen','펜','pen'],['hl','형광펜','highlight'],['line','직선','line'],['arrow','화살표','arrow'],['rect','사각형','rect'],['ellipse','원','ellipse'],['text','글자','text'],['number','번호','number'],['mosaic','모자이크','mosaic'],['blur','흐림','adjust'],['spot','강조','eye'],['crop','자르기','crop'],['pick','스포이트','dropper']];
+TOOLS.forEach(([k, n, ic]) => { if (k === 'select') return; const b = el('button',{class:'tb', title:n, html:icon(ic) + `<span>${n}</span>`, onclick:()=>setTool(k)}); b.dataset.k = k; $('#tools').append(b); });
+function setStatus(s){ $('#status').textContent = s; }
+
+/* ================= 캡처 ================= */
+async function getStream(mode){
+  if (stream && stream.active && S.keepShare && mode !== 'window') return stream;
+  if (stream){ stopShare(); }
+  if (!navigator.mediaDevices?.getDisplayMedia){ throw new Error('이 브라우저는 화면 캡처를 지원하지 않습니다. Chrome이나 Edge 최신 버전에서 열어 주세요.'); }
+  const opts = {video:{cursor: S.cursor ? 'always' : 'never'}, audio:false, selfBrowserSurface:'include', surfaceSwitching:'include', monitorTypeSurfaces:'include'};
+  if (mode === 'full') opts.video.displaySurface = 'monitor';
+  if (mode === 'window') opts.video.displaySurface = 'window';
+  if (S.testTab) { opts.video.displaySurface = 'browser'; opts.preferCurrentTab = true; }
+  try { stream = await navigator.mediaDevices.getDisplayMedia(opts); }
+  catch(e){ if (e.name !== 'NotReadableError' && e.name !== 'OverconstrainedError') throw e; stream = await navigator.mediaDevices.getDisplayMedia({video:true, audio:false}); }
+  stream.getVideoTracks()[0].addEventListener('ended', () => { stream = null; updateShare(); });
+  updateShare();
+  return stream;
+}
+function stopShare(){ if (stream){ stream.getTracks().forEach(t => t.stop()); stream = null; } updateShare(); }
+function updateShare(){
+  const t = stream?.getVideoTracks()[0];
+  $('#stShare').innerHTML = t ? `● 공유 중: ${esc(t.label || '화면')} <a href="#" id="stopShare" style="color:var(--accent)">중지</a>` : '';
+  const a = $('#stopShare'); if (a) a.onclick = e => { e.preventDefault(); stopShare(); };
+}
+async function grabFrame(s){
+  const v = el('video',{muted:true, playsInline:true}); v.srcObject = s;
+  await v.play();
+  if (!v.videoWidth) await new Promise(r => v.addEventListener('loadeddata', r, {once:true}));
+  await new Promise(r => setTimeout(r, 180));
+  if ('requestVideoFrameCallback' in v) await new Promise(r => { v.requestVideoFrameCallback(() => r()); setTimeout(r, 300); });
+  const c = document.createElement('canvas'); c.width = v.videoWidth; c.height = v.videoHeight;
+  c.getContext('2d').drawImage(v, 0, 0); v.pause(); v.srcObject = null;
+  return c;
+}
+async function capture(mode){
+  let s;
+  try { s = await getStream(mode === 'delay' ? 'any' : mode); }
+  catch(e){ if (e.name === 'NotAllowedError') setStatus('캡처를 취소했습니다'); else Moa.alert(e.message || String(e), '캡처할 수 없습니다'); return; }
+  let delay = 0;
+  if (mode === 'delay'){
+    const r = await Moa.modal({title:'지연 캡처', body:el('div',null, '캡처할 화면을 준비하세요. 시간이 지나면 자동으로 찍습니다.', el('div',{class:'row', style:{marginTop:'10px'}}, ...[3,5,10].map(n => el('button',{class:'btn' + (S.delay === n ? ' primary' : ''), onclick:()=>{ S.delay = n; saveS(); Moa._lastModal.close(); }}, n + '초')))), buttons:[{label:'취소', value:null}, {label:'시작', primary:true, value:true}]});
+    if (r === null && !document.querySelector('.moa-modal-bg') && !S._delayGo) { /* 닫기 버튼 */ }
+    delay = S.delay;
+    const cd = el('div',{class:'countdown'}); document.body.append(cd);
+    for (let i = delay; i > 0; i--){ cd.textContent = i; document.title = `(${i}) HANAI Capture`; await new Promise(r => setTimeout(r, 1000)); }
+    cd.remove(); document.title = 'HANAI Capture - HANAI Tools 화면 캡처';
+    await new Promise(r => setTimeout(r, 120));
+  } else await new Promise(r => setTimeout(r, 250));
+  let frame;
+  try { frame = await grabFrame(s); } catch(e){ Moa.alert('화면을 가져오지 못했습니다: ' + e.message); return; }
+  if (!S.keepShare) stopShare();
+  if (mode === 'region' || (mode === 'delay' && S.delayRegion)){ const c = await selectRegion(frame); if (!c) { setStatus('영역 선택을 취소했습니다'); return; } frame = c; }
+  await loadCanvas(frame, true);
+}
+/* 영역 선택 오버레이 */
+function selectRegion(src){
+  return new Promise(resolve => {
+    const root = el('div',{class:'region'});
+    const base = el('canvas'), ov = el('canvas'), help = el('div',{class:'help'}, '끌어서 캡처할 영역을 고르세요 · Enter: 전체 · Esc: 취소 · 방향키: 1px 조절');
+    const mag = el('div',{class:'mag'}); const mc = el('canvas',{width:144, height:96}); const mi = el('div'); mag.append(mc, mi);
+    root.append(base, ov, help, mag); document.body.append(root);
+    const W = innerWidth, H = innerHeight; const k = Math.min(W / src.width, H / src.height);
+    const dw = src.width * k, dh = src.height * k, ox = (W - dw) / 2, oy = (H - dh) / 2;
+    base.width = W; base.height = H; ov.width = W; ov.height = H;
+    const bg = base.getContext('2d'); bg.imageSmoothingQuality = 'high'; bg.drawImage(src, ox, oy, dw, dh);
+    const sctx = src.getContext('2d');
+    let a = null, b = null, rect = null, mouse = [W/2, H/2];
+    const toSrc = (x, y) => [Math.max(0, Math.min(src.width, (x - ox) / k)), Math.max(0, Math.min(src.height, (y - oy) / k))];
+    const draw = () => {
+      const g = ov.getContext('2d'); g.clearRect(0, 0, W, H); g.fillStyle = 'rgba(0,0,0,.45)'; g.fillRect(0, 0, W, H);
+      if (rect){ const [x1, y1] = [ox + rect.x * k, oy + rect.y * k]; g.clearRect(x1, y1, rect.w * k, rect.h * k); g.strokeStyle = '#3fc1c9'; g.lineWidth = 2; g.strokeRect(x1 - 1, y1 - 1, rect.w * k + 2, rect.h * k + 2);
+        const lbl = `${Math.round(rect.w)} × ${Math.round(rect.h)}`; g.font = '12px Consolas,monospace'; const tw = g.measureText(lbl).width + 12; const ly = y1 > 24 ? y1 - 22 : y1 + 4; g.fillStyle = '#3fc1c9'; g.fillRect(x1, ly, tw, 18); g.fillStyle = '#08121a'; g.fillText(lbl, x1 + 6, ly + 13); }
+      // 십자선
+      g.strokeStyle = 'rgba(63,193,201,.6)'; g.lineWidth = 1; g.setLineDash([4, 4]); g.beginPath(); g.moveTo(mouse[0], 0); g.lineTo(mouse[0], H); g.moveTo(0, mouse[1]); g.lineTo(W, mouse[1]); g.stroke(); g.setLineDash([]);
+      // 돋보기
+      const [sx, sy] = toSrc(...mouse); const mg = mc.getContext('2d'); mg.imageSmoothingEnabled = false; mg.fillStyle = '#000'; mg.fillRect(0, 0, 144, 96);
+      mg.drawImage(src, sx - 12, sy - 8, 24, 16, 0, 0, 144, 96); mg.strokeStyle = '#ff3b30'; mg.strokeRect(69, 45, 6, 6);
+      const px = sctx.getImageData(Math.min(src.width - 1, Math.floor(sx)), Math.min(src.height - 1, Math.floor(sy)), 1, 1).data;
+      const hex = '#' + [px[0], px[1], px[2]].map(v => v.toString(16).padStart(2, '0')).join('').toUpperCase();
+      mi.innerHTML = `${Math.floor(sx)}, ${Math.floor(sy)}<br><span style="display:inline-block;width:10px;height:10px;background:${hex};border:1px solid #fff;vertical-align:middle"></span> ${hex}`;
+      let mx = mouse[0] + 20, my = mouse[1] + 20; if (mx + 154 > W) mx = mouse[0] - 170; if (my + 140 > H) my = mouse[1] - 150; mag.style.left = mx + 'px'; mag.style.top = my + 'px';
+    };
+    const norm = () => { if (!a || !b) return null; const x = Math.min(a[0], b[0]), y = Math.min(a[1], b[1]); return {x, y, w:Math.abs(a[0] - b[0]), h:Math.abs(a[1] - b[1])}; };
+    root.onmousedown = e => { a = toSrc(e.clientX, e.clientY); b = a; rect = norm(); draw(); };
+    root.onmousemove = e => { mouse = [e.clientX, e.clientY]; if (a && e.buttons & 1){ b = toSrc(e.clientX, e.clientY); rect = norm(); } draw(); };
+    root.onmouseup = () => { if (rect && rect.w > 3 && rect.h > 3) finish(); };
+    root.ondblclick = () => { rect = {x:0, y:0, w:src.width, h:src.height}; finish(); };
+    const key = e => {
+      if (e.key === 'Escape'){ e.preventDefault(); done(null); }
+      else if (e.key === 'Enter'){ e.preventDefault(); if (!rect || rect.w < 3) rect = {x:0, y:0, w:src.width, h:src.height}; finish(); }
+      else if (rect && e.key.startsWith('Arrow')){ e.preventDefault(); const d = e.shiftKey ? 10 : 1; if (e.ctrlKey){ if (e.key === 'ArrowRight') rect.w += d; if (e.key === 'ArrowLeft') rect.w -= d; if (e.key === 'ArrowDown') rect.h += d; if (e.key === 'ArrowUp') rect.h -= d; } else { if (e.key === 'ArrowRight') rect.x += d; if (e.key === 'ArrowLeft') rect.x -= d; if (e.key === 'ArrowDown') rect.y += d; if (e.key === 'ArrowUp') rect.y -= d; } draw(); }
+    };
+    document.addEventListener('keydown', key, true);
+    function finish(){ const r = rect; const c = document.createElement('canvas'); c.width = Math.max(1, Math.round(r.w)); c.height = Math.max(1, Math.round(r.h)); c.getContext('2d').drawImage(src, -Math.round(r.x), -Math.round(r.y)); done(c); }
+    function done(v){ document.removeEventListener('keydown', key, true); root.remove(); resolve(v); }
+    draw();
+  });
+}
+
+/* ================= 이미지 불러오기 ================= */
+async function loadCanvas(c, isCapture){
+  if (dirty && work && !(await Moa.confirm('편집 중인 그림이 바뀝니다. 계속할까요? (현재 그림은 아래 기록에 남아 있습니다)'))) return;
+  work = MoaImg.cloneCanvas(c); hist = []; fut = []; numCounter = 1; dirty = false;
+  $('#welcome').classList.add('hidden'); $('#wrap').classList.remove('hidden');
+  fit();
+  if (isCapture){
+    const blob = await Moa.canvasToBlob(work, 'image/png');
+    const cap = {id: Date.now(), blob, time: Date.now()}; captures.unshift(cap); curCap = cap;
+    try { await db.set('caps', cap.id, {id:cap.id, blob, time:cap.time}); const keys = (await db.keys('caps')).sort((a, b) => b - a); for (const k of keys.slice(40)) await db.del('caps', k); } catch(e){}
+    renderHist();
+    if (S.autoCopy) copyImg(true);
+    setStatus(`캡처했습니다 (${work.width} × ${work.height})` + (S.autoCopy ? ' · 클립보드에 복사됨' : ''));
+  }
+  setTool(tool);
+}
+async function openFile(){ const [f] = await Moa.pickFiles({accept:'image/*', multiple:false}); if (f) openBlob(f); }
+async function openBlob(b){ const img = await Moa.loadImage(URL.createObjectURL(b)).catch(() => null); if (!img) return toast('열 수 없는 그림입니다'); const c = MoaImg.canvasFrom(img); URL.revokeObjectURL(img.src); await loadCanvas(c, true); }
+async function pasteClip(){
+  try { const items = await navigator.clipboard.read(); for (const it of items){ const t = it.types.find(x => x.startsWith('image/')); if (t) return openBlob(await it.getType(t)); } toast('클립보드에 그림이 없습니다'); }
+  catch(e){ toast('Ctrl+V를 눌러 붙여넣어 주세요'); }
+}
+document.addEventListener('paste', e => { if (e.target.matches('input,textarea,.textedit')) return; const f = [...(e.clipboardData?.files || [])].find(x => x.type.startsWith('image/')); if (f){ e.preventDefault(); openBlob(f); } });
+Moa.enableDrop(fs => { const f = fs.find(x => x.type.startsWith('image/')); if (f) openBlob(f); else toast('이미지 파일을 놓으세요'); }, '이미지를 놓으면 편집합니다');
+
+/* ================= 기록 ================= */
+async function loadHistory(){ try { const all = await db.all('caps'); captures = all.sort((a, b) => b.time - a.time); renderHist(); } catch(e){} }
+function renderHist(){
+  const h = $('#hist'); h.innerHTML = '';
+  if (!captures.length){ h.append(el('span',{class:'dim', style:{fontSize:'12px'}}, '캡처 기록이 여기에 쌓입니다 (최근 40개, 이 브라우저에만 저장)')); return; }
+  h.append(el('span',{class:'dim', style:{fontSize:'11px', writingMode:'vertical-rl'}}, '기록'));
+  captures.forEach(c => {
+    if (!c.url) c.url = URL.createObjectURL(c.blob);
+    const im = el('img',{src:c.url, class: c === curCap ? 'cur' : '', title: new Date(c.time).toLocaleString('ko-KR') + ' · 클릭: 열기'});
+    im.onclick = async () => { if (dirty && !(await Moa.confirm('편집 중인 내용을 버리고 이 기록을 열까요?'))) return; dirty = false; curCap = c; const img = await Moa.loadImage(c.url); work = MoaImg.canvasFrom(img); hist = []; fut = []; $('#welcome').classList.add('hidden'); $('#wrap').classList.remove('hidden'); fit(); renderHist(); };
+    const x = el('button',{class:'x', title:'기록 삭제', onclick: async e => { e.stopPropagation(); captures = captures.filter(z => z !== c); try { await db.del('caps', c.id); } catch(er){} renderHist(); }}, '✕');
+    h.append(el('div',{class:'h'}, im, x));
+  });
+  h.append(el('button',{class:'btn sm', style:{flex:'none'}, onclick: async ()=>{ if (await Moa.confirm('캡처 기록을 모두 지울까요?')){ await db.clear('caps'); captures = []; renderHist(); } }}, '기록 비우기'));
+}
+
+/* ================= 화면 / 확대 ================= */
+function render(){ const cv = $('#cv'); if (!work) return; cv.width = work.width; cv.height = work.height; cv.getContext('2d').drawImage(work, 0, 0); cv.style.width = work.width * zoom + 'px'; cv.style.height = work.height * zoom + 'px'; const ov = $('#ov'); ov.width = work.width; ov.height = work.height; ov.style.width = cv.style.width; ov.style.height = cv.style.height; $('#imgInfo').textContent = `${work.width} × ${work.height}`; $('#stZoom').textContent = Math.round(zoom * 100) + '%'; }
+function setZoom(z){ zoom = Math.max(.05, Math.min(8, z)); render(); }
+function fit(){ if (!work) return; const st = $('#stage'); zoom = Math.min(1, (st.clientWidth - 48) / work.width, (st.clientHeight - 48) / work.height); render(); }
+$('#stage').addEventListener('wheel', e => { if (e.ctrlKey && work){ e.preventDefault(); setZoom(zoom * (e.deltaY < 0 ? 1.1 : 1/1.1)); } }, {passive:false});
+function commit(c){ hist.push(work); if (hist.length > 40) hist.shift(); fut = []; work = c; dirty = true; render(); }
+function undo(){ if (!hist.length) return toast('더 이상 취소할 수 없습니다'); fut.push(work); work = hist.pop(); render(); }
+function redo(){ if (!fut.length) return; hist.push(work); work = fut.pop(); render(); }
+
+/* ================= 도구 ================= */
+const COLORS = ['#ff3b30','#ff9500','#ffcc00','#34c759','#00c7be','#007aff','#5856d6','#af52de','#ff2d55','#000000','#8e8e93','#ffffff'];
+function setTool(t){
+  tool = t; document.querySelectorAll('#tools .tb').forEach(b => b.classList.toggle('on', b.dataset.k === t));
+  $('#cv').style.cursor = t === 'text' ? 'text' : 'crosshair';
+  clearOv(); renderProps();
+}
+function renderProps(){
+  const p = $('#props'); p.innerHTML = '';
+  const name = (TOOLS.find(x => x[0] === tool) || [])[1] || '';
+  p.append(el('section',null, el('h3',null,'도구: ' + name), el('div',{class:'dim', style:{fontSize:'12px'}}, {pen:'끌어서 자유롭게 그립니다. Shift: 직선', hl:'중요한 곳을 형광펜으로 칠합니다', line:'끌어서 직선 (Shift: 수평/수직)', arrow:'끌어서 화살표', rect:'끌어서 사각형 (Shift: 정사각형)', ellipse:'끌어서 원 (Shift: 정원)', text:'클릭한 곳에 글자를 씁니다. 다 쓰면 바깥을 클릭', number:'클릭할 때마다 ①②③ 번호를 붙입니다', mosaic:'가릴 곳을 끌어서 모자이크', blur:'가릴 곳을 끌어서 흐리게', spot:'강조할 곳만 밝게, 나머지는 어둡게', crop:'남길 부분을 끌어서 고르고 Enter', pick:'그림을 클릭하면 그 색을 고릅니다'}[tool] || '')));
+  if (['pen','hl','line','arrow','rect','ellipse','text','number'].includes(tool)){
+    const sw = el('div',{class:'sw'}, ...COLORS.map(c => el('button',{class: S.color === c ? 'on' : '', style:{background:c}, title:c, onclick:()=>{ S.color = c; saveS(); renderProps(); }})));
+    p.append(el('section',null, el('h3',null,'색'), sw, el('div',{class:'row', style:{marginTop:'6px'}}, el('input',{type:'color', value:S.color, oninput:e => { S.color = e.target.value; saveS(); }}), el('span',{class:'dim'}, S.color))));
+  }
+  if (['pen','hl','line','arrow','rect','ellipse'].includes(tool)) p.append(el('section',null, el('h3',null,'굵기: ' + S.width), el('input',{type:'range', min:1, max:30, value:S.width, style:{width:'100%'}, oninput:e => { S.width = +e.target.value; e.target.previousSibling.textContent = '굵기: ' + S.width; saveS(); }})));
+  if (['rect','ellipse'].includes(tool)) p.append(el('section',null, el('label',{class:'chk'}, el('input',{type:'checkbox', checked:S.fill, onchange:e => { S.fill = e.target.checked; saveS(); }}), '안쪽 채우기 (반투명)')));
+  if (['text','number'].includes(tool)) p.append(el('section',null, el('h3',null,'글자 크기: ' + S.font), el('input',{type:'range', min:10, max:96, value:S.font, style:{width:'100%'}, oninput:e => { S.font = +e.target.value; e.target.previousSibling.textContent = '글자 크기: ' + S.font; saveS(); }})));
+  if (tool === 'text') p.append(el('section',null, el('label',{class:'chk'}, el('input',{type:'checkbox', checked:!!S.textBg, onchange:e => { S.textBg = e.target.checked; saveS(); }}), '말풍선 배경 (흰 상자)')));
+  if (tool === 'number') p.append(el('section',null, el('div',{class:'row'}, el('span',null,'다음 번호'), el('input',{type:'number', value:numCounter, min:1, style:{width:'64px'}, oninput:e => numCounter = Math.max(1, +e.target.value)}), el('button',{class:'btn sm', onclick:()=>{ numCounter = 1; renderProps(); }}, '1부터'))));
+  if (['mosaic','blur'].includes(tool)) p.append(el('section',null, el('h3',null,'강도: ' + (S.mosaic || 12)), el('input',{type:'range', min:4, max:60, value:S.mosaic || 12, style:{width:'100%'}, oninput:e => { S.mosaic = +e.target.value; e.target.previousSibling.textContent = '강도: ' + S.mosaic; saveS(); }})));
+  if (tool === 'crop') p.append(el('section',null, el('div',{class:'row', style:{flexWrap:'wrap'}}, el('button',{class:'btn sm', onclick:()=>autoTrim()}, '여백 자동 자르기'))));
+  // 그림 전체 작업
+  if (work){
+    p.append(el('section',null, el('h3',null,'그림 전체'),
+      el('div',{class:'row', style:{flexWrap:'wrap'}},
+        el('button',{class:'btn sm', onclick:()=>commit(MoaImg.rotateCanvas(work, -90))}, '↺ 회전'), el('button',{class:'btn sm', onclick:()=>commit(MoaImg.rotateCanvas(work, 90))}, '↻ 회전'),
+        el('button',{class:'btn sm', onclick:()=>commit(MoaImg.flipCanvas(work, true))}, '⇋ 반전'),
+        el('button',{class:'btn sm', onclick:()=>resizeDialog()}, '크기 조절'),
+        el('button',{class:'btn sm', onclick:()=>commit(addFrame(work, 'shadow'))}, '그림자 테두리'),
+        el('button',{class:'btn sm', onclick:()=>commit(addFrame(work, 'line'))}, '선 테두리'),
+        el('button',{class:'btn sm', onclick:()=>commit(addFrame(work, 'round'))}, '둥근 모서리'),
+        el('button',{class:'btn sm', onclick:()=>{ const c = MoaImg.cloneCanvas(work); const g = c.getContext('2d'); g.filter = 'grayscale(100%)'; g.drawImage(work, 0, 0); commit(c); }}, '흑백'))));
+  }
+}
+function addFrame(src, kind){
+  const pad = kind === 'shadow' ? 28 : kind === 'line' ? 0 : 0;
+  const c = document.createElement('canvas'); c.width = src.width + pad * 2; c.height = src.height + pad * 2; const g = c.getContext('2d');
+  if (kind === 'shadow'){ g.shadowColor = 'rgba(0,0,0,.45)'; g.shadowBlur = 20; g.shadowOffsetY = 6; g.fillStyle = '#fff'; g.fillRect(pad, pad, src.width, src.height); g.shadowColor = 'transparent'; g.drawImage(src, pad, pad); }
+  else if (kind === 'line'){ g.drawImage(src, 0, 0); g.strokeStyle = S.color; g.lineWidth = Math.max(2, S.width); g.strokeRect(g.lineWidth/2, g.lineWidth/2, c.width - g.lineWidth, c.height - g.lineWidth); }
+  else { const r = Math.min(24, Math.min(src.width, src.height) / 8); g.beginPath(); g.roundRect(0, 0, c.width, c.height, r); g.clip(); g.drawImage(src, 0, 0); }
+  return c;
+}
+function autoTrim(){
+  const g = work.getContext('2d'), d = g.getImageData(0, 0, work.width, work.height).data, W = work.width, H = work.height;
+  const bg = [d[0], d[1], d[2]]; const same = i => Math.abs(d[i] - bg[0]) + Math.abs(d[i+1] - bg[1]) + Math.abs(d[i+2] - bg[2]) < 24;
+  let x0 = W, y0 = H, x1 = -1, y1 = -1;
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++){ if (!same((y * W + x) * 4)){ if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; } }
+  if (x1 < 0) return toast('자를 여백이 없습니다');
+  const c = document.createElement('canvas'); c.width = x1 - x0 + 1; c.height = y1 - y0 + 1; c.getContext('2d').drawImage(work, -x0, -y0); commit(c); toast('여백을 잘랐습니다');
+}
+async function resizeDialog(){
+  const iw = el('input',{type:'number', value:work.width, style:{width:'90px'}}), ih = el('input',{type:'number', value:work.height, style:{width:'90px'}});
+  iw.oninput = () => ih.value = Math.round(iw.value * work.height / work.width); ih.oninput = () => iw.value = Math.round(ih.value * work.width / work.height);
+  const r = await Moa.modal({title:'크기 조절', body:el('div',{class:'row'}, '가로', iw, '세로', ih, el('button',{class:'btn sm', onclick:()=>{ iw.value = Math.round(work.width / 2); iw.oninput(); }}, '50%')), buttons:[{label:'취소', value:null}, {label:'적용', primary:true, value:true}]});
+  if (r && +iw.value > 0 && +ih.value > 0) commit(MoaImg.resizeCanvas(work, +iw.value, +ih.value));
+}
+function clearOv(){ const ov = $('#ov'); const g = ov.getContext('2d'); g.clearRect(0, 0, ov.width, ov.height); return g; }
+function shapeDraw(g, t, a, b, shift){
+  let [x1, y1] = a, [x2, y2] = b;
+  if (shift){ if (t === 'line' || t === 'arrow'){ if (Math.abs(x2 - x1) > Math.abs(y2 - y1)) y2 = y1; else x2 = x1; } else { const s = Math.max(Math.abs(x2 - x1), Math.abs(y2 - y1)); x2 = x1 + Math.sign(x2 - x1 || 1) * s; y2 = y1 + Math.sign(y2 - y1 || 1) * s; } }
+  g.save(); g.strokeStyle = g.fillStyle = S.color; g.lineWidth = S.width; g.lineCap = g.lineJoin = 'round';
+  if (t === 'line' || t === 'arrow'){
+    const ang = Math.atan2(y2 - y1, x2 - x1), L = Math.max(12, S.width * 4.2);
+    const ex = t === 'arrow' ? x2 - Math.cos(ang) * L * .6 : x2, ey = t === 'arrow' ? y2 - Math.sin(ang) * L * .6 : y2;
+    g.beginPath(); g.moveTo(x1, y1); g.lineTo(ex, ey); g.stroke();
+    if (t === 'arrow'){ g.beginPath(); g.moveTo(x2, y2); g.lineTo(x2 - L * Math.cos(ang - .42), y2 - L * Math.sin(ang - .42)); g.lineTo(x2 - L * Math.cos(ang + .42), y2 - L * Math.sin(ang + .42)); g.closePath(); g.fill(); }
+  } else if (t === 'rect'){ if (S.fill){ g.globalAlpha = .25; g.fillRect(x1, y1, x2 - x1, y2 - y1); g.globalAlpha = 1; } g.strokeRect(x1, y1, x2 - x1, y2 - y1); }
+  else if (t === 'ellipse'){ g.beginPath(); g.ellipse((x1 + x2) / 2, (y1 + y2) / 2, Math.abs(x2 - x1) / 2, Math.abs(y2 - y1) / 2, 0, 0, 7); if (S.fill){ g.globalAlpha = .25; g.fill(); g.globalAlpha = 1; } g.stroke(); }
+  g.restore();
+}
+function drawNumber(g, x, y, n){
+  const r = S.font * .8; g.save(); g.fillStyle = S.color; g.beginPath(); g.arc(x, y, r, 0, 7); g.fill(); g.lineWidth = Math.max(2, r / 8); g.strokeStyle = '#fff'; g.stroke();
+  g.fillStyle = S.color === '#ffffff' || S.color === '#ffcc00' ? '#000' : '#fff'; g.font = `bold ${r * 1.15}px "Malgun Gothic",sans-serif`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(String(n), x, y + r * .05); g.restore();
+}
+/* 마우스 처리 */
+const pos = e => { const r = $('#cv').getBoundingClientRect(); return [(e.clientX - r.left) / r.width * work.width, (e.clientY - r.top) / r.height * work.height]; };
+let down = null, penC = null, lastP = null, cropRect = null;
+$('#cv').addEventListener('pointerdown', e => {
+  if (!work || e.button !== 0) return; const p = pos(e); $('#cv').setPointerCapture(e.pointerId);
+  if (tool === 'text'){ e.preventDefault(); startText(p); return; }
+  if (tool === 'number'){ const c = MoaImg.cloneCanvas(work); drawNumber(c.getContext('2d'), p[0], p[1], numCounter++); commit(c); renderProps(); return; }
+  if (tool === 'pick'){ const d = work.getContext('2d').getImageData(Math.floor(p[0]), Math.floor(p[1]), 1, 1).data; S.color = '#' + [d[0], d[1], d[2]].map(v => v.toString(16).padStart(2, '0')).join(''); saveS(); copyText(S.color.toUpperCase()); toast(`색 ${S.color.toUpperCase()} (rgb ${d[0]}, ${d[1]}, ${d[2]}) — 복사했습니다`); setTool('pen'); return; }
+  down = p; lastP = p;
+  if (tool === 'pen' || tool === 'hl'){ penC = MoaImg.cloneCanvas(work); }
+});
+$('#cv').addEventListener('pointermove', e => {
+  if (!work) return; const p = pos(e); $('#stPos').textContent = `${Math.floor(p[0])}, ${Math.floor(p[1])}`;
+  if (!down) return;
+  if (tool === 'pen' || tool === 'hl'){
+    const g = penC.getContext('2d'); g.save(); g.lineCap = g.lineJoin = 'round';
+    if (tool === 'hl'){ g.globalCompositeOperation = 'multiply'; g.strokeStyle = S.color === '#ff3b30' ? '#ffe600' : S.color; g.globalAlpha = .4; g.lineWidth = S.width * 5; g.lineCap = 'butt';
+      // 형광펜은 매 프레임 처음부터 다시 그려 겹침 방지
+      const ov = clearOv(); ov.save(); ov.globalAlpha = .4; ov.strokeStyle = g.strokeStyle; ov.lineWidth = g.lineWidth; ov.lineCap = 'butt'; ov.lineJoin = 'round'; (penC._pts = penC._pts || [down]).push(e.shiftKey ? [p[0], down[1]] : p); ov.beginPath(); penC._pts.forEach((q, i) => i ? ov.lineTo(...q) : ov.moveTo(...q)); ov.stroke(); ov.restore(); g.restore(); return; }
+    g.strokeStyle = S.color; g.lineWidth = S.width; g.beginPath(); g.moveTo(...lastP); const q = e.shiftKey ? [p[0], lastP[1]] : p; g.lineTo(...q); g.stroke(); g.restore(); lastP = q;
+    const cv = $('#cv'); cv.getContext('2d').drawImage(penC, 0, 0); return;
+  }
+  const g = clearOv();
+  if (['line','arrow','rect','ellipse'].includes(tool)) shapeDraw(g, tool, down, p, e.shiftKey);
+  else if (['mosaic','blur','crop','spot'].includes(tool)){
+    const x = Math.min(down[0], p[0]), y = Math.min(down[1], p[1]), w = Math.abs(p[0] - down[0]), h = Math.abs(p[1] - down[1]);
+    if (tool === 'crop' || tool === 'spot'){ g.fillStyle = 'rgba(0,0,0,.5)'; g.fillRect(0, 0, work.width, work.height); g.clearRect(x, y, w, h); }
+    g.strokeStyle = tool === 'crop' ? '#fff' : '#ff3b30'; g.lineWidth = 1.5 / zoom; g.setLineDash([6 / zoom, 4 / zoom]); g.strokeRect(x, y, w, h);
+    if (tool === 'crop'){ g.setLineDash([]); g.fillStyle = '#3fc1c9'; g.font = `${12 / zoom}px Consolas`; g.fillText(`${Math.round(w)} × ${Math.round(h)}`, x + 4 / zoom, y - 6 / zoom); cropRect = {x, y, w, h}; }
+  }
+});
+$('#cv').addEventListener('pointerup', e => {
+  if (!down || !work) return; const p = pos(e); const a = down; down = null;
+  if (tool === 'pen'){ commit(penC); penC = null; return; }
+  if (tool === 'hl'){ const c = MoaImg.cloneCanvas(work); const g = c.getContext('2d'); g.drawImage($('#ov'), 0, 0); clearOv(); penC = null; commit(c); return; }
+  if (['line','arrow','rect','ellipse'].includes(tool)){ clearOv(); if (Math.hypot(p[0] - a[0], p[1] - a[1]) < 3) return; const c = MoaImg.cloneCanvas(work); shapeDraw(c.getContext('2d'), tool, a, p, e.shiftKey); commit(c); return; }
+  const x = Math.min(a[0], p[0]), y = Math.min(a[1], p[1]), w = Math.abs(p[0] - a[0]), h = Math.abs(p[1] - a[1]);
+  if (tool === 'crop'){ if (w < 3 || h < 3){ clearOv(); return; } toast('Enter: 자르기 · Esc: 취소'); return; }
+  clearOv(); if (w < 3 || h < 3) return;
+  const c = MoaImg.cloneCanvas(work);
+  if (tool === 'mosaic') MoaImg.pixelate(c, x, y, w, h, S.mosaic || 12);
+  else if (tool === 'blur') MoaImg.blurRegion(c, x, y, w, h, (S.mosaic || 12) / 1.5);
+  else if (tool === 'spot'){ const g = c.getContext('2d'); g.save(); g.fillStyle = 'rgba(0,0,0,.55)'; g.beginPath(); g.rect(0, 0, c.width, c.height); g.rect(x + w, y, -w, h); g.fill('evenodd'); g.restore(); g.strokeStyle = S.color; g.lineWidth = Math.max(2, S.width / 2); g.strokeRect(x, y, w, h); }
+  commit(c);
+});
+function applyCrop(){ if (tool !== 'crop' || !cropRect || cropRect.w < 3) return; const r = cropRect; const c = document.createElement('canvas'); c.width = Math.round(r.w); c.height = Math.round(r.h); c.getContext('2d').drawImage(work, -Math.round(r.x), -Math.round(r.y)); cropRect = null; clearOv(); commit(c); fit(); }
+/* 글자 입력 */
+let textBox = null;
+function startText(p){
+  finishText();
+  const wrap = $('#wrap'); const ed = el('div',{class:'textedit', contenteditable:'true'});
+  Object.assign(ed.style, {left: p[0] * zoom + 'px', top: p[1] * zoom + 'px', fontSize: S.font * zoom + 'px', color: S.color, background: S.textBg ? '#fff' : 'rgba(255,255,255,.35)', fontWeight:'bold'});
+  wrap.append(ed); textBox = {ed, p}; setTimeout(() => ed.focus(), 0);
+  ed.addEventListener('keydown', e => { if (e.key === 'Escape'){ e.preventDefault(); ed.remove(); textBox = null; } else if (e.key === 'Enter' && e.ctrlKey){ e.preventDefault(); finishText(); } e.stopPropagation(); });
+}
+function finishText(){
+  if (!textBox) return; const {ed, p} = textBox; const t = ed.innerText.replace(/\n$/, ''); ed.remove(); textBox = null; if (!t.trim()) return;
+  const c = MoaImg.cloneCanvas(work), g = c.getContext('2d'); g.font = `bold ${S.font}px "Malgun Gothic",sans-serif`; g.textBaseline = 'top'; const lines = t.split('\n'), lh = S.font * 1.25;
+  if (S.textBg){ const mw = Math.max(...lines.map(l => g.measureText(l).width)); const pad = S.font * .4; g.fillStyle = '#fff'; g.strokeStyle = S.color; g.lineWidth = 2; g.beginPath(); g.roundRect(p[0] - pad, p[1] - pad, mw + pad * 2, lines.length * lh + pad * 1.6, pad); g.fill(); g.stroke(); }
+  else { g.lineWidth = Math.max(2, S.font / 7); g.strokeStyle = S.color === '#ffffff' ? '#000' : '#fff'; g.lineJoin = 'round'; lines.forEach((l, i) => g.strokeText(l, p[0], p[1] + i * lh)); }
+  g.fillStyle = S.color; lines.forEach((l, i) => g.fillText(l, p[0], p[1] + i * lh)); commit(c);
+}
+document.addEventListener('pointerdown', e => { if (textBox && !textBox.ed.contains(e.target) && e.target !== $('#cv')) finishText(); }, true);
+$('#cv').addEventListener('pointerdown', e => { if (textBox && tool !== 'text') finishText(); }, true);
+
+/* ================= 내보내기 ================= */
+function fileName(ext){ const d = new Date(), p = n => String(n).padStart(2, '0'); return S.nameFmt.replace('{날짜}', `${d.getFullYear()}${p(d.getMonth()+1)}${p(d.getDate())}`).replace('{시간}', `${p(d.getHours())}${p(d.getMinutes())}${p(d.getSeconds())}`) + ext; }
+async function save(){
+  if (!work) return toast('저장할 그림이 없습니다');
+  finishText();
+  const body = el('div',{style:{width:'min(380px,80vw)'}, html:`<label class="field"><span>파일 이름</span><input type="text" id="fn" value="${esc(fileName(''))}"></label>
+    <label class="field"><span>형식</span><select id="ff"><option value="image/png">PNG (선명, 권장)</option><option value="image/jpeg">JPG (작은 크기)</option><option value="image/webp">WEBP</option></select></label>
+    <label class="field"><span>품질 (JPG/WEBP)</span><input type="range" id="fq" min="40" max="100" value="${Math.round(S.quality * 100)}"></label><div class="dim" id="fe"></div>`});
+  body.querySelector('#ff').value = S.fmt;
+  const est = async () => { const b = await Moa.canvasToBlob(work, body.querySelector('#ff').value, body.querySelector('#fq').value / 100); body.querySelector('#fe').textContent = '예상 크기: ' + Moa.fmtBytes(b.size); };
+  body.querySelector('#ff').onchange = est; body.querySelector('#fq').onchange = est; est();
+  const r = await Moa.modal({title:'저장', body, width:'auto', buttons:[{label:'취소', value:null}, {label:'저장', primary:true, onClick:()=>({n:body.querySelector('#fn').value.trim() || fileName(''), f:body.querySelector('#ff').value, q:body.querySelector('#fq').value / 100})}]});
+  if (!r) return;
+  S.fmt = r.f; S.quality = r.q; saveS();
+  const blob = await Moa.canvasToBlob(work, r.f, r.q);
+  if (await Moa.saveAs(blob, r.n + {'image/png':'.png','image/jpeg':'.jpg','image/webp':'.webp'}[r.f])){ dirty = false; setStatus('저장했습니다'); }
+}
+async function copyImg(silent){
+  if (!work) return; finishText();
+  try { const b = await Moa.canvasToBlob(work, 'image/png'); await navigator.clipboard.write([new ClipboardItem({'image/png': b})]); if (!silent) toast('클립보드로 복사했습니다. 다른 프로그램에서 Ctrl+V 하세요.'); }
+  catch(e){ if (!silent) toast('복사할 수 없습니다: ' + e.message); }
+}
+function copyText(t){ navigator.clipboard.writeText(t).catch(() => {}); }
+function printImg(){
+  if (!work) return; finishText();
+  const url = work.toDataURL('image/png'); const fr = el('iframe',{style:{position:'fixed', width:0, height:0, border:0}}); document.body.append(fr);
+  const d = fr.contentDocument; d.open(); d.write(`<!doctype html><title>인쇄</title><style>@page{margin:10mm}body{margin:0}img{max-width:100%;max-height:96vh;display:block;margin:auto}</style><img src="${url}">`); d.close();
+  d.images[0].onload = () => { try { fr.contentWindow.print(); } catch(e){} setTimeout(() => fr.remove(), 60000); };
+}
+async function savePdf(){
+  if (!work) return; finishText();
+  const doc = await PDFLib.PDFDocument.create(); const png = await doc.embedPng(new Uint8Array(await (await Moa.canvasToBlob(work, 'image/png')).arrayBuffer()));
+  const w = work.width * .75, h = work.height * .75; const pg = doc.addPage([w, h]); pg.drawImage(png, {x:0, y:0, width:w, height:h});
+  doc.setProducer('HANAI Capture'); const bytes = await doc.save();
+  await Moa.saveAs(new Blob([bytes], {type:'application/pdf'}), fileName('.pdf'));
+}
+async function eyedrop(){
+  if (!window.EyeDropper) return toast('이 브라우저는 화면 색 추출을 지원하지 않습니다 (Chrome·Edge 필요)');
+  try { const r = await new EyeDropper().open(); const hex = r.sRGBHex; const n = parseInt(hex.slice(1), 16); S.color = hex; saveS(); renderProps(); copyText(hex.toUpperCase());
+    Moa.modal({title:'색 추출', body:`<div class="row" style="gap:14px"><div style="width:64px;height:64px;border-radius:10px;background:${hex};border:1px solid var(--line)"></div><div style="line-height:1.9;font-family:Consolas,monospace">HEX ${hex.toUpperCase()}<br>RGB ${n >> 16}, ${(n >> 8) & 255}, ${n & 255}<br><span class="dim" style="font-family:inherit">HEX 값을 복사했고, 그리기 색으로 정했습니다.</span></div></div>`}); } catch(e){}
+}
+
+/* ================= 글자 추출 (OCR) ================= */
+async function ocrImage(){
+  if (!work) return toast('먼저 캡처하거나 그림을 여세요');
+  finishText();
+  const lang = MoaOnline.langSelect(S.ocrLang || 'kor+eng');
+  const ok = await Moa.modal({title:'글자 추출 (OCR)', body: el('div',null, el('div',{class:'dim', style:{marginBottom:'8px'}}, '그림 속 글자를 읽어 텍스트로 바꿉니다. 처음 한 번은 인터넷 연결이 필요합니다.'), el('label',{class:'field'}, el('span',null,'언어'), lang)), buttons:[{label:'취소', value:false}, {label:'인식 시작', primary:true, value:true}]});
+  if (!ok) return;
+  S.ocrLang = lang.value; saveS();
+  const prog = MoaOnline.progress('글자 인식 중');
+  try {
+    const src = Math.max(work.width, work.height) < 1200 ? MoaImg.resizeCanvas(work, work.width * 2, work.height * 2) : work;
+    const r = await MoaOnline.ocr(src, {lang:lang.value, onStatus: t => prog.set(null, t)});
+    prog.close(); MoaOnline.showText(r.text, '글자 추출 결과', fileName(''));
+  } catch(e){ prog.close(); Moa.alert(e.message || String(e), '글자 추출 실패'); }
+}
+
+/* ================= 설정 / 도움말 ================= */
+function settings(){
+  const body = el('div',{style:{width:'min(460px,86vw)'}, html:`
+    <label class="chk" style="display:flex;margin:6px 0"><input type="checkbox" id="s1" ${S.autoCopy ? 'checked' : ''}> 캡처하면 자동으로 클립보드에 복사</label>
+    <label class="chk" style="display:flex;margin:6px 0"><input type="checkbox" id="s2" ${S.keepShare ? 'checked' : ''}> 공유 화면을 유지해 다음 캡처 때 다시 묻지 않기</label>
+    <label class="chk" style="display:flex;margin:6px 0"><input type="checkbox" id="s3" ${S.cursor ? 'checked' : ''}> 마우스 커서도 함께 캡처</label>
+    <label class="chk" style="display:flex;margin:6px 0"><input type="checkbox" id="s5" ${S.delayRegion ? 'checked' : ''}> 지연 캡처 후 영역 지정하기</label>
+    <label class="field"><span>파일 이름 규칙</span><input type="text" id="s4" value="${esc(S.nameFmt)}"></label><div class="dim" style="font-size:11.5px">{날짜} {시간} 을 쓸 수 있습니다</div>`});
+  Moa.modal({title:'설정', body, width:'auto', buttons:[{label:'취소', value:null}, {label:'확인', primary:true, onClick:()=>{ S.autoCopy = body.querySelector('#s1').checked; S.keepShare = body.querySelector('#s2').checked; S.cursor = body.querySelector('#s3').checked; S.delayRegion = body.querySelector('#s5').checked; S.nameFmt = body.querySelector('#s4').value || S.nameFmt; saveS(); if (!S.keepShare) stopShare(); }}]});
+}
+function help(){
+  Moa.modal({title:'HANAI Capture 도움말', width:600, body:`<p style="margin-top:0"><b>캡처:</b> 영역 지정·전체 화면·창·지연 캡처를 누르면 브라우저가 공유할 화면(전체 화면/창/탭)을 묻습니다. 고른 화면은 '대상 바꾸기' 전까지 유지되어, 다음부터는 바로 찍힙니다. 영역 지정에서는 돋보기로 픽셀 단위까지 맞출 수 있습니다.</p>
+  <p><b>편집:</b> 왼쪽 도구로 펜·형광펜·화살표·도형·글자·번호·모자이크·흐림·강조·자르기를 쓰고, 오른쪽에서 색·굵기·크기를 고릅니다. 결과는 저장(PNG/JPG/WEBP/PDF)·복사·인쇄할 수 있습니다.</p>
+  <p><b>글자 추출:</b> 캡처한 그림 속 글자를 텍스트로 읽어 복사할 수 있습니다(OCR). 처음 한 번은 인터넷 연결이 필요합니다.</p>
+  <p class="dim">브라우저 보안 때문에 Print Screen 같은 시스템 전역 단축키와 스크롤 캡처는 쓸 수 없습니다. 윈도우 <span class="kbd">Win</span>+<span class="kbd">Shift</span>+<span class="kbd">S</span>로 찍고 여기서 <span class="kbd">Ctrl</span>+<span class="kbd">V</span>로 붙여 편집하는 방법도 편리합니다.</p>` +
+  Moa.shortcutTable([['Ctrl+Shift+A','영역 지정 캡처'],['Ctrl+Shift+F','전체 화면 캡처'],['Ctrl+Shift+W','창 캡처'],['Ctrl+Shift+D','지연 캡처'],['Ctrl+Shift+C','화면 색 추출'],['Ctrl+Shift+T','글자 추출 (OCR)'],['Ctrl+V','클립보드 그림 붙여넣기'],['Ctrl+C','복사'],['Ctrl+S','저장'],['Ctrl+P','인쇄'],['Ctrl+Z / Ctrl+Y','실행 취소 / 다시 실행'],['P H L A R E T N M B S X','펜·형광펜·선·화살표·사각형·원·글자·번호·모자이크·흐림·강조·자르기'],['Enter','자르기 적용'],['Ctrl + 휠','확대 / 축소']])});
+}
+
+/* ================= 단축키 ================= */
+const KEYS = {p:'pen', h:'hl', l:'line', a:'arrow', r:'rect', e:'ellipse', t:'text', n:'number', m:'mosaic', b:'blur', s:'spot', x:'crop', i:'pick'};
+document.addEventListener('keydown', e => {
+  if (document.querySelector('.moa-modal-bg,.region')) return;
+  if (e.target.matches('input,textarea,select,.textedit')) return;
+  const k = e.key, c = e.ctrlKey || e.metaKey;
+  if (c && e.shiftKey){ const m = {A:'region', F:'full', W:'window', D:'delay'}[k.toUpperCase()]; if (m){ e.preventDefault(); capture(m); return; } if (k.toUpperCase() === 'C'){ e.preventDefault(); eyedrop(); return; } if (k.toUpperCase() === 'T'){ e.preventDefault(); ocrImage(); return; } }
+  if (c && (k === 'z' || k === 'Z')){ e.preventDefault(); undo(); }
+  else if (c && (k === 'y' || k === 'Y')){ e.preventDefault(); redo(); }
+  else if (c && (k === 's' || k === 'S')){ e.preventDefault(); save(); }
+  else if (c && (k === 'c' || k === 'C')){ e.preventDefault(); copyImg(); }
+  else if (c && (k === 'p' || k === 'P')){ e.preventDefault(); printImg(); }
+  else if (c && (k === 'o' || k === 'O')){ e.preventDefault(); openFile(); }
+  else if (c && (k === '=' || k === '+')){ e.preventDefault(); setZoom(zoom * 1.25); }
+  else if (c && k === '-'){ e.preventDefault(); setZoom(zoom / 1.25); }
+  else if (c && k === '0'){ e.preventDefault(); fit(); }
+  else if (c) return;
+  else if (k === 'Enter'){ applyCrop(); }
+  else if (k === 'Escape'){ clearOv(); cropRect = null; }
+  else if (KEYS[k.toLowerCase()] && work){ setTool(KEYS[k.toLowerCase()]); }
+  else if (k === 'F1'){ e.preventDefault(); help(); }
+});
+window.addEventListener('resize', () => { if (work && zoom <= 1) fit(); });
+window.addEventListener('beforeunload', e => { stopShare(); if (dirty){ e.preventDefault(); e.returnValue = ''; } });
+
+setTool('arrow'); loadHistory(); renderHist();
+window.MoaCap = {loadCanvas, setTool, get work(){ return work; }, selectRegion, applyCrop};
+})();
+</script>
+<script>/* 웹판: 처음 화면 · 기본판 ↔ Plus판 전환 */
+(function(){
+  var plus = /\/plus\//.test(location.pathname), f = location.pathname.split('/').pop() || 'index.html';
+  var t = document.querySelector('.moa-title'); if (!t) return;
+  function b(txt, href, title, ask){ var a = document.createElement('a'); a.className = 'btn sm'; a.textContent = txt; a.href = href; a.title = title; a.style.marginLeft = '6px'; a.style.textDecoration = 'none';
+    if (ask) a.onclick = function(e){ if (!confirm('지금 열려 있는 파일과 작업은 닫힙니다.\n' + (plus ? '기본판' : 'Plus판') + '으로 바꿀까요?')) e.preventDefault(); };
+    t.appendChild(a); }
+  b('처음 화면', './', 'HANAI Tools 처음 화면', true);
+  b(plus ? '기본판으로' : 'Plus판으로', (plus ? '../' : 'plus/') + f, plus ? '같은 프로그램의 기본판을 엽니다' : '같은 프로그램의 Plus판을 엽니다 (7Z·음정·MP3·글자 추출·AI 배경 지우기 등)', true);
+})();
+</script>
+</body>
+</html>
