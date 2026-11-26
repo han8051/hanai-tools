@@ -1,0 +1,788 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 32 32%22%3E%3Crect width=%2232%22 height=%2232%22 rx=%228%22 fill=%22%237c8cff%22/%3E%3Ctext x=%2216%22 y=%2223%22 font-size=%2219%22 font-family=%22Arial%22 font-weight=%22700%22 text-anchor=%22middle%22 fill=%22white%22%3EH%3C/text%3E%3C/svg%3E">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#12151f">
+<title>HANAI ToDo - HANAI Tools 할 일·일정</title>
+<link rel="stylesheet" href="lib/moa.css">
+<style>
+/* HANAI ToDo (소소하루를 HANAI Tools로 옮긴 것) */
+html,body{height:auto;min-height:100%}
+body{overflow:auto;-webkit-text-size-adjust:100%}
+.moa-title{position:sticky;top:0;z-index:50;flex-wrap:wrap;row-gap:4px}
+.moa-title .sp{flex:1}
+.moa-title .btn svg{width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.t-app{max-width:760px;margin:0 auto;padding:18px 14px 48px;font-size:15px;line-height:1.5}
+.t-tabs{display:flex;gap:10px;margin:2px 0 14px}
+.t-tab{flex:1;padding:12px 8px;border:1px solid var(--line);border-radius:12px;background:var(--panel);color:var(--text);font-size:15px}
+.t-tab.on{background:var(--accent);border-color:var(--accent);color:var(--accentText);font-weight:700}
+.t-panel{padding:18px;border:1px solid var(--line);border-radius:18px;background:var(--panel);box-shadow:0 2px 8px rgba(0,0,0,.06)}
+.t-dayhead{display:flex;align-items:center;gap:8px;margin-bottom:6px}
+.t-dayhead h2{flex:1;margin:0;font-size:16px;font-weight:600;color:var(--dim);text-align:center;cursor:pointer;user-select:none}
+.t-dayhead h2 .today{display:inline-block;margin-left:6px;padding:0 7px;border-radius:9px;font-size:11px;background:var(--accent);color:var(--accentText);vertical-align:2px}
+.t-nav{width:36px;height:36px;flex:none;border-radius:10px;border:1px solid var(--line);background:var(--panel2);font-size:19px;line-height:1;color:var(--text)}
+.t-nav:hover{border-color:var(--accent)}
+.t-count{text-align:center;font-size:12px;color:var(--dim);margin-bottom:8px;min-height:18px}
+.t-count button{border:0;background:none;color:var(--accent);font-size:12px;padding:0 2px;text-decoration:underline}
+.t-list{touch-action:pan-y}
+.t-task{display:flex;align-items:flex-start;gap:10px;padding:12px 0;border-bottom:1px solid color-mix(in srgb,var(--line) 60%,transparent)}
+.t-task:last-child{border-bottom:0}
+.t-task.editing{background:color-mix(in srgb,var(--accent) 10%,transparent);border-radius:8px}
+.t-check{--cc:var(--text);appearance:none;-webkit-appearance:none;width:20px;height:20px;min-width:20px;margin:2px 0 0;border:1px solid var(--cc);border-radius:50%;background:var(--cc);position:relative;cursor:pointer}
+.t-check:checked{background:color-mix(in srgb,var(--cc) 30%,transparent);border-color:color-mix(in srgb,var(--cc) 30%,transparent)}
+.t-check:checked::after{content:"";position:absolute;left:6px;top:2.5px;width:5px;height:10px;border:solid #fff;border-width:0 2px 2px 0;transform:rotate(45deg)}
+.t-body{flex:1;min-width:0;overflow-wrap:anywhere;line-height:1.5}
+.t-task.done .t-body{opacity:.3}
+.t-date{display:inline-block;margin-bottom:2px;padding:0;border:0;background:none;color:var(--dim);font-size:12px;text-align:left}
+.t-date:hover{color:var(--accent);text-decoration:underline}
+.t-label{white-space:pre-wrap}
+.t-label mark{background:color-mix(in srgb,var(--warn) 45%,transparent);color:inherit;border-radius:3px}
+.t-rep{display:inline-block;margin-left:6px;font-size:11px;color:var(--dim);vertical-align:1px}
+.t-actions{display:flex;gap:3px;flex-shrink:0;align-items:center}
+.t-small{padding:4px 7px;border:1px solid var(--line);border-radius:6px;background:var(--panel2);color:var(--text);font-size:12px}
+.t-small:hover{border-color:var(--accent)}
+.t-del{padding:0 6px;border:0;background:transparent;color:var(--dim);font-size:22px;line-height:1.1}
+.t-del:hover{color:var(--danger)}
+.t-empty{padding:18px 0;color:var(--dim);font-size:14px;text-align:center}
+.t-input-area{margin-top:20px;padding-top:18px;border-top:1px solid var(--line)}
+.t-form-title{margin:0 0 4px;font-size:17px}
+.t-form-note{margin:0 0 12px;font-size:12px;color:var(--dim)}
+.t-field{margin-bottom:14px}
+.t-field-title{display:block;margin-bottom:8px;font-size:14px;font-weight:700}
+input.t-input,select.t-select{width:100%;min-width:0;padding:12px;border:1px solid var(--line);border-radius:10px;background:var(--bg2);color:var(--text);font-size:16px}
+input.t-input:focus,select.t-select:focus{border-color:var(--accent);outline:2px solid color-mix(in srgb,var(--accent) 40%,transparent);outline-offset:1px}
+.t-counter{text-align:right;font-size:11px;color:var(--dim);margin-top:3px;min-height:16px}
+.t-colors{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.t-color{width:30px;height:30px;padding:0;border:2px solid transparent;border-radius:50%;background:transparent;display:inline-flex;align-items:center;justify-content:center}
+.t-color.sel{border-color:var(--dim)}
+.t-swatch{display:block;width:18px;height:18px;border:1px solid var(--dim);border-radius:50%}
+.t-repeat{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.t-form-actions{display:flex;gap:8px;margin-top:6px}
+.t-primary,.t-secondary{min-height:48px;padding:12px 16px;border-radius:10px;font-weight:700;font-size:15px}
+.t-primary{flex:1;border:1px solid var(--accent);background:var(--accent);color:var(--accentText)}
+.t-secondary{border:1px solid var(--line);background:var(--panel2);color:var(--text)}
+.t-status{min-height:19px;margin-top:8px;color:var(--dim);font-size:12.5px;line-height:1.5}
+.t-picker{margin-top:20px;padding-top:18px;border-top:1px solid var(--line)}
+.t-quick{display:flex;gap:8px;margin-bottom:12px}
+.t-qbtn{flex:1;padding:10px;border:1px solid var(--line);border-radius:9px;background:var(--panel2);color:var(--text);font-size:14px}
+.t-qbtn:hover{border-color:var(--accent)}
+#date-input{cursor:pointer}
+.t-cal{margin-top:12px;padding:12px;border:1px solid var(--line);border-radius:12px;background:var(--bg2)}
+.t-calhead{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;gap:6px}
+.t-calhead button{padding:6px 12px;border:1px solid var(--line);border-radius:8px;background:var(--panel2);color:var(--text)}
+.t-month{font-weight:700;font-size:15px}
+.t-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:4px}
+.t-wd{padding:6px 0;color:var(--dim);font-size:12px;text-align:center}
+.t-wd.sun,.t-day.sun{color:#e5484d}.t-wd.sat,.t-day.sat{color:#2f80ed}
+.t-day{position:relative;min-height:40px;border:1px solid transparent;border-radius:8px;background:var(--panel);color:var(--text);font-size:14px}
+.t-day.other{opacity:.38}
+.t-day.today{border-color:var(--accent)}
+.t-day.sel{border-color:var(--text);background:var(--hover);font-weight:700}
+.t-day.has::after{content:"";position:absolute;bottom:4px;left:calc(50% - 2.5px);width:5px;height:5px;border-radius:50%;background:var(--text)}
+.t-day.alldone::after{background:var(--dim);opacity:.6}
+.t-search-row{display:grid;grid-template-columns:1fr 110px;gap:8px}
+.t-foot{margin-top:18px;text-align:center;color:var(--dim);font-size:12px;line-height:1.7}
+.t-foot button{border:0;background:none;color:var(--accent);font-size:12px;padding:0 2px;text-decoration:underline}
+.t-foot .warn{color:var(--warn)}
+.t-help h3{font-size:14px;margin:14px 0 6px}.t-help h3:first-child{margin-top:0}
+.t-help ul{margin:0;padding-left:18px;line-height:1.8}
+.t-info td{padding:3px 10px 3px 0;vertical-align:top}.t-info td:first-child{color:var(--dim);white-space:nowrap}
+@media (max-width:520px){
+  .t-app{padding:12px 10px 32px}
+  .t-panel{padding:14px}
+  .moa-title .lbl{display:none}
+  .moa-title .sub{display:none}
+  .t-day{min-height:36px}
+  .t-actions{gap:1px}
+  .t-small{padding:4px 5px}
+}
+</style>
+</head>
+<body>
+<div class="moa-title">
+  <div class="moa-logo">H</div>
+  <h1>HANAI ToDo</h1><span class="sub">할 일·일정</span>
+  <span class="sp"></span>
+  <button class="btn sm" id="bMenu" title="백업·가져오기·정리"><span id="icMenu"></span><span class="lbl">백업·메뉴</span></button>
+  <button class="btn sm" id="bSkin" title="스킨"><span id="icSkin"></span><span class="lbl">스킨</span></button>
+  <button class="btn sm" id="bHelp" title="도움말 (F1)"><span id="icHelp"></span><span class="lbl">도움말</span></button>
+</div>
+
+<div class="t-app">
+  <div class="t-tabs">
+    <button class="t-tab on" id="tab-day">하루</button>
+    <button class="t-tab" id="tab-search">검색</button>
+  </div>
+
+  <section class="t-panel" id="day-panel">
+    <div class="t-dayhead">
+      <button class="t-nav" id="prev-day" title="전날 (←)" aria-label="전날">‹</button>
+      <h2 id="date-heading" title="달력 열기"></h2>
+      <button class="t-nav" id="next-day" title="다음 날 (→)" aria-label="다음 날">›</button>
+    </div>
+    <div class="t-count" id="day-count"></div>
+    <div class="t-list" id="day-tasks"></div>
+
+    <div class="t-input-area" id="input-area">
+      <h2 class="t-form-title hidden" id="form-title">일정 수정</h2>
+      <p class="t-form-note hidden" id="form-note">날짜를 바꾸려면 아래 달력에서 새 날짜를 고르세요.</p>
+      <div class="t-field">
+        <input class="t-input" id="task-input" type="text" maxlength="500" placeholder="할 일을 입력하세요" autocomplete="off" enterkeyhint="done">
+        <div class="t-counter" id="counter"></div>
+      </div>
+      <div class="t-field">
+        <div class="t-colors" id="colors" aria-label="일정 글자 색상"></div>
+      </div>
+      <div class="t-field" id="repeat-field">
+        <div class="t-repeat">
+          <select class="t-select" id="repeat-type" aria-label="반복">
+            <option value="none">반복 안 함</option>
+            <option value="daily">매일</option>
+            <option value="weekly">매주</option>
+            <option value="monthly">매월</option>
+          </select>
+          <select class="t-select" id="repeat-count" aria-label="반복 횟수">
+            <option value="5">5회</option>
+            <option value="10" selected>10회</option>
+            <option value="20">20회</option>
+            <option value="30">30회</option>
+          </select>
+        </div>
+      </div>
+      <div class="t-form-actions">
+        <button class="t-primary" id="save-button">저장</button>
+        <button class="t-secondary hidden" id="cancel-edit">취소</button>
+      </div>
+      <div class="t-status" id="day-status" role="status"></div>
+    </div>
+
+    <div class="t-picker">
+      <div class="t-quick">
+        <button class="t-qbtn" data-off="0">오늘</button>
+        <button class="t-qbtn" data-off="1">내일</button>
+      </div>
+      <input class="t-input" id="date-input" type="text" readonly aria-label="날짜 선택, 누르면 달력 열기" aria-expanded="false" aria-controls="calendar-panel">
+      <div class="t-cal hidden" id="calendar-panel">
+        <div class="t-calhead">
+          <button type="button" id="prev-month" aria-label="이전 달">‹</button>
+          <div class="t-month" id="month-label"></div>
+          <button type="button" id="next-month" aria-label="다음 달">›</button>
+        </div>
+        <div class="t-grid" id="calendar-grid"></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="t-panel hidden" id="search-panel">
+    <div class="t-field">
+      <label class="t-field-title" for="search-input">검색어</label>
+      <div class="t-search-row">
+        <input class="t-input" id="search-input" type="text" placeholder="할 일 내용으로 검색" autocomplete="off" enterkeyhint="search">
+        <select class="t-select" id="search-filter" aria-label="완료 여부">
+          <option value="all">전체</option>
+          <option value="todo">할 일</option>
+          <option value="done">완료</option>
+        </select>
+      </div>
+    </div>
+    <div class="t-status" id="search-status"></div>
+    <div class="t-list" id="search-results"></div>
+  </section>
+
+  <div class="t-foot" id="foot"></div>
+</div>
+
+<script src="lib/moa-common.js"></script>
+<script>
+/* HANAI ToDo — 소소하루(구글 시트 웹앱)를 HANAI Tools용으로 옮김. 일정은 이 기기 브라우저(localStorage)에 저장 */
+(function(){
+'use strict';
+const $ = id => document.getElementById(id);
+const el = Moa.el;
+Moa.icons.todo = '<path d="M4 6l1.5 1.5L8 5M4 12l1.5 1.5L8 11M4 18l1.5 1.5L8 17M11 6h9M11 12h9M11 18h9"/>';
+Moa.icons.more = '<circle cx="5" cy="12" r="1.3"/><circle cx="12" cy="12" r="1.3"/><circle cx="19" cy="12" r="1.3"/>';
+Moa.applyTheme('todo');
+$('icMenu').innerHTML = Moa.icon('save'); $('icSkin').innerHTML = Moa.icon('palette'); $('icHelp').innerHTML = Moa.icon('help');
+
+const KEY = 'hanai.todo.data', SKEY = 'hanai.todo.settings';
+const MAXLEN = 500;
+const COLORS = [
+  ['black', '기본(검정)', 'var(--text)'],
+  ['red', '빨강', '#FF5959'],
+  ['blue', '파랑', '#0F87FF'],
+  ['green', '녹색', '#1E9482'],
+  ['brown', '갈색', '#B85A12'],
+  ['pink', '핑크', '#FF66FA'],
+];
+const COLOR_MAP = Object.fromEntries(COLORS.map(c => [c[0], c[2]]));
+const WD = ['일','월','화','수','목','금','토'];
+const WDN = ['일요일','월요일','화요일','수요일','목요일','금요일','토요일'];
+
+let tasks = [];
+let S = Object.assign({hideDone:false, lastBackup:0, changedSinceBackup:false}, Moa.store.get(SKEY, {}));
+let selectedDate = '', visibleMonth = new Date(), selectedColor = 'black', editingId = null, tab = 'day';
+
+/* ── 날짜 ── */
+const pad = n => String(n).padStart(2, '0');
+const dateString = d => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+const todayStr = () => dateString(new Date());
+function parseDate(v){
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(v || ''));
+  if (!m) return null;
+  const d = new Date(+m[1], +m[2]-1, +m[3]);
+  return d.getMonth() === +m[2]-1 ? d : null;
+}
+function addDays(v, n){ const d = parseDate(v); d.setDate(d.getDate() + n); return dateString(d); }
+function addMonthsSafely(date, months){
+  const day = date.getDate();
+  const r = new Date(date.getFullYear(), date.getMonth() + months, 1);
+  const last = new Date(r.getFullYear(), r.getMonth() + 1, 0).getDate();
+  r.setDate(Math.min(day, last));
+  return r;
+}
+function formatDate(v){
+  const d = parseDate(v); if (!d) return '';
+  return `${d.getFullYear()}년 ${d.getMonth()+1}월 ${d.getDate()}일 ${WDN[d.getDay()]}`;
+}
+/* 서버 코드(normalizeDate_)와 같은 규칙: yyyy-MM-dd, yyyy.M.d, yyyy/M/d, "2026. 11. 26" 등 */
+function normDate(value){
+  if (value instanceof Date && !isNaN(value)) return dateString(value);
+  const text = String(value ?? '').trim();
+  if (parseDate(text)) return text;
+  const m = text.match(/^(\d{4})\s*[./\-년]\s*(\d{1,2})\s*[./\-월]\s*(\d{1,2})/);
+  if (m){ const s = `${m[1]}-${pad(+m[2])}-${pad(+m[3])}`; if (parseDate(s)) return s; }
+  throw new Error('날짜 형식이 올바르지 않습니다: ' + text);
+}
+const normColor = c => { const v = String(c || 'black').trim().toLowerCase(); return COLOR_MAP[v] ? v : 'black'; };
+const newId = () => (window.crypto && crypto.randomUUID) ? crypto.randomUUID() : 'id-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 10);
+function normTask(t){
+  const task = String(t.task ?? '').trim();
+  if (!task) throw new Error('빈 할 일');
+  const d = t.done;
+  return {
+    id: String(t.id || '').trim() || newId(),
+    date: normDate(t.date),
+    task: task.slice(0, MAXLEN),
+    done: d === true || d === 1 || /^(true|1|y|yes|o|v|완료|✓|✔)$/i.test(String(d ?? '').trim()),
+    color: normColor(t.color),
+    group: t.group ? String(t.group) : undefined,
+    created: +t.created || Date.now(),
+    updated: +t.updated || Date.now(),
+  };
+}
+
+/* ── 저장 ── */
+function load(){
+  let raw = null;
+  try { raw = JSON.parse(localStorage.getItem(KEY) || 'null'); } catch(e){ raw = null; }
+  const list = Array.isArray(raw) ? raw : (raw && Array.isArray(raw.tasks) ? raw.tasks : []);
+  tasks = [];
+  for (const t of list){ try { tasks.push(normTask(t)); } catch(e){} }
+}
+let persistAsked = false;
+function save(){
+  try {
+    localStorage.setItem(KEY, JSON.stringify({app:'HANAI ToDo', version:1, saved:Date.now(), tasks}));
+  } catch(e){
+    Moa.alert('일정을 저장하지 못했습니다.\n브라우저의 저장 공간이 꽉 찼거나, 시크릿(비공개) 창에서는 저장이 막혀 있을 수 있습니다.\n\n지금 내용은 「백업·메뉴 → 백업 파일 저장」으로 꼭 받아 두세요.', '저장 실패');
+    return false;
+  }
+  S.changedSinceBackup = true; saveSettings();
+  if (!persistAsked && navigator.storage && navigator.storage.persist){
+    persistAsked = true; navigator.storage.persist().catch(() => {});
+  }
+  return true;
+}
+function saveSettings(){ Moa.store.set(SKEY, S); }
+
+/* ── 화면 ── */
+function setStatus(id, msg){ $(id).textContent = msg || ''; }
+const byName = (a, b) => a.task.localeCompare(b.task, 'ko');
+
+function renderColors(){
+  const box = $('colors'); box.innerHTML = '';
+  COLORS.forEach(([k, name, css]) => {
+    const b = el('button', {type:'button', class:'t-color', title:name, 'aria-label':name, onclick:() => selectColor(k)}, el('span', {class:'t-swatch', style:{background:css}}));
+    b.dataset.color = k; box.append(b);
+  });
+}
+function selectColor(c){
+  selectedColor = normColor(c);
+  document.querySelectorAll('.t-color').forEach(b => b.classList.toggle('sel', b.dataset.color === selectedColor));
+}
+
+function updateDateDisplay(){
+  const d = parseDate(selectedDate); if (!d) return;
+  $('date-input').value = `${selectedDate}(${WD[d.getDay()]})`;
+  const h = $('date-heading'); h.textContent = formatDate(selectedDate);
+  if (selectedDate === todayStr()) h.append(el('span', {class:'today'}, '오늘'));
+}
+
+function renderDay(){
+  const day = tasks.filter(t => t.date === selectedDate);
+  const pending = day.filter(t => !t.done).sort(byName);
+  const done = day.filter(t => t.done).sort(byName);
+  const cnt = $('day-count'); cnt.innerHTML = '';
+  if (day.length){
+    cnt.append(`할 일 ${pending.length}개 · 완료 ${done.length}개`);
+    if (done.length) cnt.append(' · ', el('button', {onclick:() => { S.hideDone = !S.hideDone; saveSettings(); renderDay(); }}, S.hideDone ? '완료 보이기' : '완료 숨기기'));
+  }
+  renderTaskList($('day-tasks'), S.hideDone ? pending : [...pending, ...done], false);
+}
+
+function renderSearch(){
+  const root = $('search-results');
+  const q = $('search-input').value.trim().toLocaleLowerCase();
+  const f = $('search-filter').value;
+  const res = tasks.filter(t => (!q || t.task.toLocaleLowerCase().includes(q)) && (f === 'all' || (f === 'done') === t.done))
+    .sort((a, b) => a.date.localeCompare(b.date) || Number(a.done) - Number(b.done) || byName(a, b));
+  $('search-status').textContent = `${res.length}개 일정`;
+  renderTaskList(root, res, true, q);
+}
+
+function highlight(node, text, q){
+  if (!q){ node.textContent = text; return; }
+  const low = text.toLocaleLowerCase(); let i = 0, j;
+  while ((j = low.indexOf(q, i)) >= 0){
+    if (j > i) node.append(text.slice(i, j));
+    node.append(el('mark', null, text.slice(j, j + q.length)));
+    i = j + q.length;
+  }
+  if (i < text.length) node.append(text.slice(i));
+}
+
+function renderTaskList(root, list, showDate, q){
+  root.innerHTML = '';
+  if (!list.length){
+    root.append(el('div', {class:'t-empty'}, showDate ? (tasks.length ? '검색 결과가 없습니다.' : '등록된 일정이 없습니다.') : '등록된 일정이 없습니다.'));
+    return;
+  }
+  const frag = document.createDocumentFragment();
+  list.forEach(task => {
+    const color = COLOR_MAP[task.color] || COLOR_MAP.black;
+    const row = el('div', {class:'t-task' + (task.done ? ' done' : '') + (task.id === editingId ? ' editing' : '')});
+    row.dataset.id = task.id;
+    const cb = el('input', {type:'checkbox', class:'t-check', 'aria-label':`${task.task} 완료`});
+    cb.checked = task.done; cb.style.setProperty('--cc', color);
+    cb.onchange = () => toggleDone(task.id, cb.checked);
+    const body = el('div', {class:'t-body'});
+    if (showDate) body.append(el('button', {class:'t-date', type:'button', title:'이 날짜로 가기', onclick:() => { showTab('day'); selectDate(task.date); }}, formatDate(task.date)), el('br'));
+    const label = el('span', {class:'t-label', style:{color}});
+    highlight(label, task.task, q);
+    body.append(label);
+    if (task.group && tasks.some(t => t.group === task.group && t.id !== task.id)) body.append(el('span', {class:'t-rep', title:'반복 일정'}, '↻'));
+    const edit = el('button', {class:'t-small', type:'button', onclick:() => { showTab('day'); editTask(task.id); }}, '수정');
+    const del = el('button', {class:'t-del', type:'button', title:'일정 삭제', 'aria-label':`${task.task} 삭제`, onclick:() => removeTask(task.id)}, '×');
+    row.append(cb, body, el('div', {class:'t-actions'}, edit, del));
+    frag.append(row);
+  });
+  root.append(frag);
+}
+
+function renderCalendar(){
+  const y = visibleMonth.getFullYear(), m = visibleMonth.getMonth();
+  $('month-label').textContent = `${y}년 ${m+1}월`;
+  const grid = $('calendar-grid'); grid.innerHTML = '';
+  WD.forEach((w, i) => grid.append(el('div', {class:'t-wd' + (i === 0 ? ' sun' : i === 6 ? ' sat' : '')}, w)));
+  const first = new Date(y, m, 1);
+  const start = new Date(y, m, 1 - first.getDay());
+  const info = new Map();
+  for (const t of tasks){ const v = info.get(t.date) || {n:0, open:0}; v.n++; if (!t.done) v.open++; info.set(t.date, v); }
+  const today = todayStr();
+  for (let i = 0; i < 42; i++){
+    const d = new Date(start); d.setDate(start.getDate() + i);
+    const k = dateString(d), v = info.get(k);
+    const b = el('button', {type:'button', class:'t-day' + (d.getMonth() !== m ? ' other' : '') + (d.getDay() === 0 ? ' sun' : d.getDay() === 6 ? ' sat' : '') + (k === today ? ' today' : '') + (k === selectedDate ? ' sel' : '') + (v ? ' has' + (v.open ? '' : ' alldone') : ''),
+      title: v ? `${k} 일정 ${v.n}개 (남은 일 ${v.open}개)` : k, onclick:() => selectDate(k)}, String(d.getDate()));
+    grid.append(b);
+  }
+}
+
+function renderFoot(){
+  const f = $('foot'); f.innerHTML = '';
+  const last = S.lastBackup ? Moa.fmtDate(S.lastBackup).slice(0, 10) : '';
+  f.append(`일정 ${tasks.length}개는 이 기기의 브라우저에만 저장됩니다. `);
+  f.append(el('br'));
+  const old = tasks.length && S.changedSinceBackup && (!S.lastBackup || Date.now() - S.lastBackup > 14 * 864e5);
+  f.append(el('span', {class: old ? 'warn' : ''}, last ? `마지막 백업: ${last}` : '아직 백업한 적 없음'), ' · ', el('button', {onclick:exportJSON}, '지금 백업'));
+}
+
+function renderAll(){
+  updateDateDisplay(); renderCalendar(); renderDay(); renderSearch(); renderFoot();
+}
+
+/* ── 탭·날짜 ── */
+function showTab(which){
+  tab = which;
+  $('day-panel').classList.toggle('hidden', which !== 'day');
+  $('search-panel').classList.toggle('hidden', which !== 'search');
+  $('tab-day').classList.toggle('on', which === 'day');
+  $('tab-search').classList.toggle('on', which === 'search');
+  closeCalendar();
+  if (which === 'search'){ renderSearch(); $('search-input').focus(); }
+}
+function selectDate(v){
+  if (!parseDate(v)) return;
+  selectedDate = v;
+  const d = parseDate(v); visibleMonth = new Date(d.getFullYear(), d.getMonth(), 1);
+  closeCalendar();
+  updateDateDisplay(); renderCalendar(); renderDay();
+  if (editingId !== null) setStatus('day-status', `수정 저장을 누르면 ${formatDate(v)}(으)로 옮겨집니다.`);
+}
+function openCalendar(){ $('calendar-panel').classList.remove('hidden'); $('date-input').setAttribute('aria-expanded', 'true'); renderCalendar(); }
+function closeCalendar(){ $('calendar-panel').classList.add('hidden'); $('date-input').setAttribute('aria-expanded', 'false'); }
+function toggleCalendar(){ $('calendar-panel').classList.contains('hidden') ? openCalendar() : closeCalendar(); }
+function moveMonth(n){ visibleMonth = new Date(visibleMonth.getFullYear(), visibleMonth.getMonth() + n, 1); renderCalendar(); }
+
+/* ── 등록·수정·완료·삭제 ── */
+function makeRepeatDates(startValue, type, count){
+  const start = parseDate(startValue); const out = [];
+  if (!start) return out;
+  const total = type === 'none' ? 1 : count;
+  for (let i = 0; i < total; i++){
+    let n;
+    if (type === 'daily'){ n = new Date(start); n.setDate(start.getDate() + i); }
+    else if (type === 'weekly'){ n = new Date(start); n.setDate(start.getDate() + 7 * i); }
+    else if (type === 'monthly') n = addMonthsSafely(start, i);
+    else n = new Date(start);
+    out.push(dateString(n));
+  }
+  return out;
+}
+
+let busy = false;
+async function saveTask(){
+  if (busy) return;
+  const text = $('task-input').value.trim();
+  if (!text){ setStatus('day-status', '할 일을 입력해 주세요.'); $('task-input').focus(); return; }
+  if (text.length > MAXLEN){ setStatus('day-status', `할 일은 ${MAXLEN}자 이내로 입력해 주세요.`); return; }
+  if (editingId !== null){ updateExisting(text); return; }
+
+  const type = $('repeat-type').value, count = Number($('repeat-count').value);
+  const dates = makeRepeatDates(selectedDate, type, count);
+  if (dates.length > 1){
+    const label = type === 'daily' ? '매일' : type === 'weekly' ? '매주' : '매월';
+    busy = true;
+    const ok = await Moa.confirm(`${formatDate(selectedDate)}부터 ${label} 일정 ${dates.length}개를 등록할까요?\n(마지막: ${formatDate(dates[dates.length-1])})`, '반복 일정 등록');
+    busy = false;
+    if (!ok) return;
+  }
+  const now = Date.now(), group = dates.length > 1 ? newId() : undefined;
+  dates.forEach((d, i) => tasks.push({id:newId(), date:d, task:text, done:false, color:selectedColor, group, created:now + i, updated:now}));
+  if (!save()){ load(); renderAll(); return; }
+  $('task-input').value = ''; updateCounter();
+  $('repeat-type').value = 'none'; $('repeat-count').value = '10';
+  setStatus('day-status', dates.length > 1 ? `${dates.length}개 일정을 등록했습니다.` : '저장했습니다.');
+  renderAll();
+  $('task-input').focus();
+}
+
+function updateExisting(text){
+  const t = tasks.find(x => x.id === editingId);
+  if (!t){ setStatus('day-status', '수정할 일정을 찾을 수 없습니다.'); cancelEdit(); return; }
+  const moved = t.date !== selectedDate;
+  t.task = text; t.color = selectedColor; t.date = selectedDate; t.updated = Date.now();
+  if (!save()){ load(); renderAll(); return; }
+  cancelEdit(true);
+  setStatus('day-status', moved ? `일정을 수정하고 ${formatDate(t.date)}(으)로 옮겼습니다.` : '일정을 수정했습니다.');
+  renderAll();
+}
+
+function editTask(id){
+  const t = tasks.find(x => x.id === id); if (!t) return;
+  editingId = id;
+  $('task-input').value = t.task; updateCounter();
+  selectColor(t.color);
+  $('form-title').classList.remove('hidden'); $('form-note').classList.remove('hidden');
+  $('save-button').textContent = '수정 저장';
+  $('cancel-edit').classList.remove('hidden');
+  $('repeat-field').classList.add('hidden');
+  selectedDate = t.date;
+  const d = parseDate(t.date); visibleMonth = new Date(d.getFullYear(), d.getMonth(), 1);
+  setStatus('day-status', '');
+  updateDateDisplay(); renderCalendar(); renderDay();
+  $('input-area').scrollIntoView({behavior:'smooth', block:'center'});
+  $('task-input').focus();
+}
+
+function cancelEdit(keepStatus){
+  const wasEditing = editingId !== null;
+  editingId = null;
+  $('task-input').value = ''; updateCounter();
+  $('form-title').classList.add('hidden'); $('form-note').classList.add('hidden');
+  $('save-button').textContent = '저장';
+  $('cancel-edit').classList.add('hidden');
+  $('repeat-field').classList.remove('hidden');
+  selectColor('black');
+  if (!keepStatus) setStatus('day-status', '');
+  if (wasEditing && !keepStatus) renderDay();
+}
+
+function toggleDone(id, checked){
+  const t = tasks.find(x => x.id === id); if (!t) return;
+  t.done = !!checked; t.updated = Date.now();
+  if (!save()){ load(); }
+  renderAll();
+}
+
+async function removeTask(id){
+  const t = tasks.find(x => x.id === id); if (!t) return;
+  const later = t.group ? tasks.filter(x => x.group === t.group && x.id !== t.id && x.date >= t.date) : [];
+  let ids = null;
+  if (later.length){
+    const r = await Moa.modal({title:'반복 일정 삭제', body:el('div', {style:{whiteSpace:'pre-wrap'}}, `"${t.task}"\n${formatDate(t.date)}\n\n반복으로 함께 등록한 이후 일정이 ${later.length}개 더 있습니다.`),
+      buttons:[{label:'취소', value:null}, {label:`이후 일정까지 모두 (${later.length + 1}개)`, danger:true, value:'all'}, {label:'이 일정만', primary:true, value:'one'}]});
+    if (!r) return;
+    ids = new Set(r === 'all' ? [t.id, ...later.map(x => x.id)] : [t.id]);
+  } else {
+    if (!await Moa.confirm(`"${t.task}" 일정을 삭제할까요?`, '일정 삭제')) return;
+    ids = new Set([t.id]);
+  }
+  tasks = tasks.filter(x => !ids.has(x.id));
+  if (editingId !== null && ids.has(editingId)) cancelEdit(true);
+  if (!save()){ load(); }
+  setStatus('day-status', ids.size > 1 ? `${ids.size}개 일정을 삭제했습니다.` : '삭제했습니다.');
+  renderAll();
+}
+
+function updateCounter(){
+  const n = $('task-input').value.length;
+  $('counter').textContent = n > 400 ? `${n} / ${MAXLEN}` : '';
+}
+
+/* ── 백업·가져오기 ── */
+function backupBlob(){
+  return new Blob([JSON.stringify({app:'HANAI ToDo', version:1, exported:new Date().toISOString(), count:tasks.length, tasks}, null, 1)], {type:'application/json'});
+}
+function markBackedUp(){ S.lastBackup = Date.now(); S.changedSinceBackup = false; saveSettings(); renderFoot(); }
+async function exportJSON(){
+  const ok = await Moa.saveAs(backupBlob(), `HANAI ToDo 백업 ${todayStr()}.json`);
+  if (ok){ markBackedUp(); Moa.toast(`일정 ${tasks.length}개를 백업 파일로 저장했습니다.`); }
+}
+const canShareFiles = () => { try { return !!(navigator.canShare && navigator.canShare({files:[new File(['x'], 'a.json', {type:'application/json'})]})); } catch(e){ return false; } };
+async function shareJSON(){
+  const file = new File([backupBlob()], `HANAI ToDo 백업 ${todayStr()}.json`, {type:'application/json'});
+  try { await navigator.share({files:[file], title:'HANAI ToDo 백업'}); markBackedUp(); }
+  catch(e){ if (e.name !== 'AbortError') Moa.alert('공유하지 못했습니다: ' + e.message); }
+}
+const csvCell = v => { v = String(v ?? ''); return /[",\r\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; };
+async function exportCSV(){
+  const rows = [['ID','날짜','할 일','완료','색상']].concat(
+    [...tasks].sort((a, b) => a.date.localeCompare(b.date) || byName(a, b)).map(t => [t.id, t.date, t.task, t.done ? 'TRUE' : 'FALSE', t.color]));
+  const text = '﻿' + rows.map(r => r.map(csvCell).join(',')).join('\r\n') + '\r\n';
+  await Moa.saveAs(new Blob([text], {type:'text/csv'}), `HANAI ToDo ${todayStr()}.csv`);
+}
+function parseCSV(text){
+  const rows = []; let row = [], cell = '', q = false;
+  for (let i = 0; i < text.length; i++){
+    const c = text[i];
+    if (q){
+      if (c === '"'){ if (text[i+1] === '"'){ cell += '"'; i++; } else q = false; }
+      else cell += c;
+    } else if (c === '"') q = true;
+    else if (c === ',' || c === '\t'){ row.push(cell); cell = ''; }
+    else if (c === '\n' || c === '\r'){ if (c === '\r' && text[i+1] === '\n') i++; row.push(cell); rows.push(row); row = []; cell = ''; }
+    else cell += c;
+  }
+  if (cell !== '' || row.length){ row.push(cell); rows.push(row); }
+  return rows.filter(r => r.some(x => String(x).trim() !== ''));
+}
+function rowsToTasks(rows){
+  if (!rows.length) return [];
+  const h = rows[0].map(x => String(x).trim().toLowerCase().replace(/\s+/g, ''));
+  const find = names => h.findIndex(x => names.includes(x));
+  let idx = {id:find(['id']), date:find(['날짜','date']), task:find(['할일','task','내용','todo']), done:find(['완료','done']), color:find(['색상','color','색'])};
+  let body = rows.slice(1);
+  if (idx.date < 0 || idx.task < 0){ idx = {id:0, date:1, task:2, done:3, color:4}; body = rows; }
+  return body.map(r => ({id: idx.id >= 0 ? r[idx.id] : '', date:r[idx.date], task:r[idx.task], done: idx.done >= 0 ? r[idx.done] : false, color: idx.color >= 0 ? r[idx.color] : 'black'}));
+}
+async function importFile(file){
+  if (!file) return;
+  let raw;
+  try {
+    const text = (await Moa.readText(file)).replace(/^﻿/, '');
+    const s = text.trim();
+    if (s.startsWith('{') || s.startsWith('[')){
+      const j = JSON.parse(s);
+      raw = Array.isArray(j) ? j : (Array.isArray(j.tasks) ? j.tasks : null);
+      if (!raw) throw new Error('HANAI ToDo 백업 파일이 아닙니다.');
+    } else raw = rowsToTasks(parseCSV(text));
+  } catch(e){ Moa.alert('파일을 읽지 못했습니다.\n' + e.message, '가져오기'); return; }
+  const list = []; let skipped = 0; const seen = new Set();
+  for (const t of raw){ try { const n = normTask(t); if (seen.has(n.id)) n.id = newId(); seen.add(n.id); list.push(n); } catch(e){ skipped++; } }
+  if (!list.length){ Moa.alert(`가져올 일정이 없습니다.${skipped ? `\n(읽을 수 없는 줄 ${skipped}개)` : ''}\n\n구글 시트라면 「파일 → 다운로드 → 쉼표로 구분된 값(.csv)」으로 받은 파일을 고르세요.`, '가져오기'); return; }
+  const same = list.filter(t => tasks.some(x => x.id === t.id)).length;
+  const msg = `「${file.name}」에서 일정 ${list.length}개를 읽었습니다.` + (skipped ? `\n(날짜나 내용이 잘못된 줄 ${skipped}개는 건너뜀)` : '') +
+    `\n\n지금 이 기기에는 일정 ${tasks.length}개가 있습니다.` + (same ? `\nID가 같은 일정 ${same}개는 파일 내용으로 바뀝니다.` : '') +
+    `\n\n· 합치기: 지금 일정에 더합니다.\n· 모두 바꾸기: 지금 일정을 지우고 파일 내용만 남깁니다.`;
+  const r = await Moa.modal({title:'일정 가져오기', body:el('div', {style:{whiteSpace:'pre-wrap'}}, msg),
+    buttons:[{label:'취소', value:null}, {label:'모두 바꾸기', danger:true, value:'replace'}, {label:'합치기', primary:true, value:'merge'}]});
+  if (!r) return;
+  if (r === 'replace' && tasks.length && !await Moa.confirm(`지금 있는 일정 ${tasks.length}개가 모두 지워집니다. 계속할까요?`, '모두 바꾸기')) return;
+  const backup = tasks;
+  if (r === 'replace') tasks = list;
+  else { const m = new Map(tasks.map(t => [t.id, t])); list.forEach(t => m.set(t.id, t)); tasks = [...m.values()]; }
+  if (!save()){ tasks = backup; return; }
+  cancelEdit(true);
+  renderAll();
+  Moa.toast(`일정 ${list.length}개를 가져왔습니다.`, 2600);
+}
+async function pickImport(){
+  const fs = await Moa.pickFiles({accept:'.json,.csv,.tsv,.txt,application/json,text/csv,text/plain', multiple:false});
+  if (fs[0]) importFile(fs[0]);
+}
+
+async function clearDone(){
+  const n = tasks.filter(t => t.done).length;
+  if (!n){ Moa.toast('완료한 일정이 없습니다.'); return; }
+  if (!await Moa.confirm(`완료한 일정 ${n}개를 모두 지울까요?\n되돌릴 수 없으니 필요하면 먼저 백업하세요.`, '완료한 일정 지우기')) return;
+  tasks = tasks.filter(t => !t.done); save(); renderAll(); Moa.toast(`${n}개를 지웠습니다.`);
+}
+async function clearAll(){
+  if (!tasks.length){ Moa.toast('지울 일정이 없습니다.'); return; }
+  if (!await Moa.confirm(`일정 ${tasks.length}개를 모두 지울까요?\n되돌릴 수 없습니다. 먼저 「백업 파일 저장」을 권합니다.`, '모든 일정 지우기')) return;
+  tasks = []; save(); cancelEdit(true); renderAll(); Moa.toast('모든 일정을 지웠습니다.');
+}
+async function infoDialog(){
+  const done = tasks.filter(t => t.done).length;
+  const bytes = new Blob([localStorage.getItem(KEY) || '']).size;
+  let persisted = '확인할 수 없음';
+  try { if (navigator.storage && navigator.storage.persisted) persisted = (await navigator.storage.persisted()) ? '켜짐 (브라우저가 함부로 지우지 않음)' : '꺼짐 (저장 공간이 부족하면 브라우저가 지울 수 있음)'; } catch(e){}
+  const dates = tasks.map(t => t.date).sort();
+  const where = location.protocol === 'file:' ? '이 컴퓨터의 파일(file://)로 연 HANAI ToDo 전용 공간' : location.host + ' 주소 전용 공간';
+  const rows = [
+    ['일정', `${tasks.length}개 (할 일 ${tasks.length - done}개 · 완료 ${done}개)`],
+    ['기간', dates.length ? `${dates[0]} ~ ${dates[dates.length-1]}` : '-'],
+    ['저장 크기', Moa.fmtBytes(bytes)],
+    ['저장 위치', `이 기기의 브라우저 · ${where}`],
+    ['영구 저장', persisted],
+    ['마지막 백업', S.lastBackup ? Moa.fmtDate(S.lastBackup) : '없음'],
+  ];
+  Moa.modal({title:'저장 정보', width:520, body:'<table class="t-info">' + rows.map(([a, b]) => `<tr><td>${a}</td><td>${Moa.esc(b)}</td></tr>`).join('') + '</table>' +
+    '<p class="dim" style="font-size:12px;line-height:1.7;margin:12px 0 0">· 같은 폰이라도 브라우저(크롬·삼성 인터넷 등)가 다르면 저장 공간도 다릅니다.<br>· 브라우저의 「인터넷 사용 기록 / 사이트 데이터 삭제」를 하면 일정도 지워집니다.<br>· 다른 기기로 옮길 때는 백업 파일(.json)을 저장해서 그 기기에서 「가져오기」를 하세요.</p>'});
+}
+
+function openMenu(e){
+  const r = e.currentTarget.getBoundingClientRect();
+  const items = [
+    {label:'백업 파일 저장 (.json)', onClick:exportJSON},
+  ];
+  if (canShareFiles()) items.push({label:'백업 파일 보내기 (공유)', hint:'카톡·드라이브 등', onClick:shareJSON});
+  items.push(
+    {label:'가져오기 (백업 .json · 구글 시트 .csv)', onClick:pickImport},
+    {label:'CSV로 내보내기 (구글 시트·엑셀용)', onClick:exportCSV},
+    '-',
+    {label:(S.hideDone ? '✓ ' : '') + '완료한 일 숨기기', onClick:() => { S.hideDone = !S.hideDone; saveSettings(); renderDay(); }},
+    {label:'완료한 일정 모두 지우기', onClick:clearDone},
+    {label:'모든 일정 지우기', onClick:clearAll},
+    '-',
+    {label:'저장 정보', onClick:infoDialog},
+  );
+  Moa.menu(Math.max(6, r.right - 260), r.bottom + 4, items);
+}
+
+function helpDialog(){
+  Moa.modal({title:'HANAI ToDo 도움말', width:620, body:`<div class="t-help">
+<h3>무엇인가요?</h3>
+<ul><li>날짜별로 할 일을 적고 체크하는 프로그램입니다. 구글 시트 웹앱 「소소하루」를 HANAI Tools로 옮겼습니다.</li>
+<li>일정은 <b>지금 쓰는 기기(폰·PC)의 브라우저 안에만</b> 저장됩니다. 인터넷이나 구글 시트로 보내지 않습니다.</li></ul>
+<h3>쓰는 법</h3>
+<ul><li><b>하루</b>: 아래 달력(또는 ‹ ›, 오늘/내일)으로 날짜를 고르고, 할 일을 적고 색을 골라 <b>저장</b>.</li>
+<li><b>반복</b>: 매일·매주·매월 × 5/10/20/30회를 한 번에 등록. 반복 일정을 지울 때 「이후 일정까지 모두」를 고를 수 있습니다.</li>
+<li>동그라미를 누르면 완료(흐리게 표시, 목록 아래로). <b>수정</b>을 누르면 내용·색·날짜를 바꿀 수 있습니다.</li>
+<li>달력의 점: 일정이 있는 날 (흐린 점 = 모두 완료). 폰에서는 목록을 좌우로 밀어 전날/다음 날로 갈 수 있습니다.</li>
+<li><b>검색</b>: 내용으로 찾기, 할 일/완료만 보기. 날짜를 누르면 그날로 갑니다.</li></ul>
+<h3>백업·옮기기 (꼭 해 두세요)</h3>
+<ul><li>「백업·메뉴 → 백업 파일 저장」으로 .json 파일을 받아 두면, 폰을 바꾸거나 브라우저 데이터를 지워도 「가져오기」로 되살릴 수 있습니다.</li>
+<li><b>구글 시트(소소하루)의 일정 옮기기</b>: 시트에서 「일정」 탭을 연 뒤 파일 → 다운로드 → 쉼표로 구분된 값(.csv) → 여기서 「가져오기」.</li>
+<li>「CSV로 내보내기」 파일은 같은 열(ID·날짜·할 일·완료·색상)이라 구글 시트에 다시 붙여 넣을 수 있습니다.</li>
+<li>폰 화면에 아이콘으로 두려면: 브라우저 메뉴 → 「홈 화면에 추가」.</li></ul>
+<h3>단축키 (PC)</h3>
+${Moa.shortcutTable([['Enter', '저장 (입력 칸에서)'], ['Esc', '수정 취소 · 달력 닫기'], ['← / →', '전날 / 다음 날'], ['T', '오늘로'], ['N', '할 일 입력 칸으로'], ['/', '검색'], ['Ctrl+S', '백업 파일 저장'], ['F1', '도움말']])}
+</div>`});
+}
+
+/* ── 이벤트 ── */
+function init(){
+  load();
+  renderColors(); selectColor('black');
+  const now = new Date();
+  selectedDate = dateString(now); visibleMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+
+  $('tab-day').onclick = () => showTab('day');
+  $('tab-search').onclick = () => showTab('search');
+  $('prev-day').onclick = () => selectDate(addDays(selectedDate, -1));
+  $('next-day').onclick = () => selectDate(addDays(selectedDate, 1));
+  $('date-heading').onclick = () => { openCalendar(); $('calendar-panel').scrollIntoView({behavior:'smooth', block:'nearest'}); };
+  $('prev-month').onclick = () => moveMonth(-1);
+  $('next-month').onclick = () => moveMonth(1);
+  document.querySelectorAll('.t-qbtn').forEach(b => b.onclick = () => selectDate(addDays(todayStr(), +b.dataset.off)));
+  $('date-input').addEventListener('click', toggleCalendar);
+  $('save-button').onclick = saveTask;
+  $('cancel-edit').onclick = () => cancelEdit();
+  $('task-input').addEventListener('keydown', e => {
+    if (e.key === 'Enter' && !e.isComposing && e.keyCode !== 229){ e.preventDefault(); saveTask(); }
+    else if (e.key === 'Escape' && editingId !== null){ e.preventDefault(); cancelEdit(); }
+  });
+  $('task-input').addEventListener('input', updateCounter);
+  $('search-input').addEventListener('input', renderSearch);
+  $('search-filter').addEventListener('change', renderSearch);
+  $('bMenu').onclick = openMenu;
+  $('bSkin').onclick = e => Moa.themeMenu('todo', Math.max(6, e.clientX - 120), e.clientY + 14);
+  $('bHelp').onclick = helpDialog;
+
+  document.addEventListener('click', e => {
+    if (!$('calendar-panel').contains(e.target) && !$('date-input').contains(e.target) && !$('date-heading').contains(e.target)) closeCalendar();
+  });
+
+  /* 폰: 목록을 좌우로 밀어 날짜 이동 */
+  let sx = 0, sy = 0, st = 0;
+  const list = $('day-tasks');
+  list.addEventListener('touchstart', e => { const t = e.touches[0]; sx = t.clientX; sy = t.clientY; st = Date.now(); }, {passive:true});
+  list.addEventListener('touchend', e => {
+    const t = e.changedTouches[0], dx = t.clientX - sx, dy = t.clientY - sy;
+    if (Date.now() - st < 700 && Math.abs(dx) > 70 && Math.abs(dy) < 45) selectDate(addDays(selectedDate, dx < 0 ? 1 : -1));
+  }, {passive:true});
+
+  document.addEventListener('keydown', e => {
+    if (e.key === 'F1'){ e.preventDefault(); helpDialog(); return; }
+    if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key.toLowerCase() === 's'){ e.preventDefault(); exportJSON(); return; }
+    if (document.querySelector('.moa-modal-bg') || document.querySelector('.moa-menu')) return;
+    const tag = (e.target.tagName || '').toLowerCase();
+    if (tag === 'input' || tag === 'textarea' || tag === 'select' || e.ctrlKey || e.metaKey || e.altKey) return;
+    if (e.key === 'Escape'){ closeCalendar(); if (editingId !== null) cancelEdit(); }
+    else if (e.key === 'ArrowLeft' && tab === 'day'){ e.preventDefault(); selectDate(addDays(selectedDate, -1)); }
+    else if (e.key === 'ArrowRight' && tab === 'day'){ e.preventDefault(); selectDate(addDays(selectedDate, 1)); }
+    else if (e.key === 't' || e.key === 'T'){ showTab('day'); selectDate(todayStr()); }
+    else if (e.key === 'n' || e.key === 'N'){ e.preventDefault(); showTab('day'); $('task-input').focus(); }
+    else if (e.key === '/'){ e.preventDefault(); showTab('search'); }
+  });
+
+  /* 다른 탭(창)에서 바뀐 내용 반영 */
+  window.addEventListener('storage', e => { if (e.key === KEY){ load(); if (editingId && !tasks.some(t => t.id === editingId)) cancelEdit(true); renderAll(); } });
+  /* 자정이 지나면 '오늘' 표시 갱신 */
+  let lastToday = todayStr();
+  setInterval(() => { const t = todayStr(); if (t !== lastToday){ lastToday = t; renderAll(); } }, 60000);
+
+  Moa.enableDrop(fs => { if (fs[0]) importFile(fs[0]); }, '백업 파일(.json)이나 CSV를 놓으면 일정을 가져옵니다');
+  renderAll();
+}
+window.HanaiTodo = {get tasks(){ return tasks; }, selectDate, importFile, makeRepeatDates, parseCSV, rowsToTasks};
+init();
+})();
+</script>
+<script>/* 웹판: 처음 화면 · 기본판 ↔ Plus판 전환 */
+(function(){
+  var plus = /\/plus\//.test(location.pathname), f = location.pathname.split('/').pop() || 'index.html';
+  var t = document.querySelector('.moa-title'); if (!t) return;
+  function b(txt, href, title, ask){ var a = document.createElement('a'); a.className = 'btn sm'; a.textContent = txt; a.href = href; a.title = title; a.style.marginLeft = '6px'; a.style.textDecoration = 'none';
+    if (ask) a.onclick = function(e){ if (!confirm('지금 열려 있는 파일과 작업은 닫힙니다.\n' + (plus ? '기본판' : 'Plus판') + '으로 바꿀까요?')) e.preventDefault(); };
+    t.appendChild(a); }
+  b('처음 화면', './', 'HANAI Tools 처음 화면', true);
+  b(plus ? '기본판으로' : 'Plus판으로', (plus ? '../' : 'plus/') + f, plus ? '같은 프로그램의 기본판을 엽니다' : '같은 프로그램의 Plus판을 엽니다 (7Z·음정·MP3·글자 추출·AI 배경 지우기 등)', true);
+})();
+</script>
+</body>
+</html>
